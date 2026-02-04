@@ -120,6 +120,29 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Toast Notification */
+        #toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: #0f172a;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 10001;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="min-h-screen pb-32 md:pb-12 selection:bg-blue-100 selection:text-blue-900">
@@ -128,6 +151,12 @@
     <div id="app-loader">
         <div class="loader-spinner"></div>
         <p class="text-sm font-bold text-slate-500 animate-pulse">Syncing Data...</p>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast">
+        <span class="text-emerald-400 text-xl">✓</span>
+        <span id="toast-message" class="text-sm font-bold">Action Successful</span>
     </div>
 
     <!-- Mobile Header (Sticky) -->
@@ -527,8 +556,18 @@
             userAvatar: document.getElementById('user-avatar'),
             userEmail: document.getElementById('user-email'),
             authBtn: document.getElementById('auth-btn'),
-            authBtnText: document.getElementById('auth-btn-text')
+            authBtnText: document.getElementById('auth-btn-text'),
+            
+            // Toast
+            toast: document.getElementById('toast'),
+            toastMsg: document.getElementById('toast-message')
         };
+
+        function showToast(message) {
+            elements.toastMsg.innerText = message;
+            elements.toast.classList.add('show');
+            setTimeout(() => elements.toast.classList.remove('show'), 3000);
+        }
 
         // Initialize App
         async function initApp() {
@@ -590,15 +629,11 @@
                     window.paydays = data.paydays || [];
                     window.debts = data.debts || [];
                 } else {
-                    // New Account detected.
-                    // Check if we have "Guest" data currently in memory to migrate
+                    // Check if we have data in memory to migrate (e.g. from Anon to Google)
                     if (window.debts.length > 0) {
-                        console.log("Migrating Guest data to new Account...");
-                        save(); // Upload current guest data to new ID
-                        alert("Successfully synced your guest data to your account!");
-                        return; // Stop here, render will be called by save()
+                        showToast("Syncing your local data to account...");
+                        save();
                     } else {
-                        // Truly empty
                         window.paydays = [10, 25]; 
                         window.debts = [];
                         save(); 
@@ -692,10 +727,11 @@
                 window.paydays.sort((a, b) => a - b);
                 document.getElementById('payday-input').value = '';
                 window.save();
+                showToast("Payday Added");
             }
         };
 
-        window.removePayday = (val) => { window.paydays = window.paydays.filter(p => p !== val); window.save(); };
+        window.removePayday = (val) => { window.paydays = window.paydays.filter(p => p !== val); window.save(); showToast("Payday Removed"); };
 
         window.updatePaydayCheckboxes = (containerId, name, preselected = []) => {
             const container = document.getElementById(containerId);
@@ -748,6 +784,7 @@
             window.debts.push({ id: Date.now(), name, debtor, totalAmount: monthlyAmount * terms, fixedAmount: monthlyAmount, date: dateStr, terms, selectedDays, installments, isDone: false });
             document.getElementById('debt-form').reset();
             window.save();
+            showToast("Transaction Saved");
             window.switchTab('dashboard');
         };
 
@@ -815,11 +852,12 @@
             window.debts[debtIndex] = { ...window.debts[debtIndex], name, debtor, fixedAmount: monthlyAmount, totalAmount: monthlyAmount * terms, date, terms, selectedDays, installments, isDone: false };
             window.closeModal('edit-modal');
             window.save();
+            showToast("Update Successful");
         };
 
         window.closeModal = (id) => { document.getElementById(id).classList.remove('modal-active'); };
-        window.deleteDebt = (id) => { if(confirm("Delete this record?")) { window.debts = window.debts.filter(d => d.id !== id); window.save(); } };
-        window.clearAllDebts = () => { if(confirm("Wipe everything?")) { window.debts = []; window.save(); } };
+        window.deleteDebt = (id) => { if(confirm("Delete this record?")) { window.debts = window.debts.filter(d => d.id !== id); window.save(); showToast("Deleted"); } };
+        window.clearAllDebts = () => { if(confirm("Wipe everything?")) { window.debts = []; window.save(); showToast("All Records Cleared"); } };
         
         const fmt = (v) => `₱${v.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 
