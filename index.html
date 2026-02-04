@@ -461,6 +461,7 @@
     </nav>
 
     <script type="module">
+        // Import Firebase SDKs (using stable v11.6.1 for compatibility)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -473,12 +474,24 @@
         window.userId = null;
         window.currentUser = null;
 
-        // Firebase Config
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // --- FIREBASE CONFIGURATION (From your provided snippet) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfmB78T2pfXxPY0OIbS59JXblpv_oWlqE",
+            authDomain: "newdebttracker.firebaseapp.com",
+            projectId: "newdebttracker",
+            storageBucket: "newdebttracker.firebasestorage.app",
+            messagingSenderId: "160890615145",
+            appId: "1:160890615145:web:4061d3db8f1e31dc51b9f8",
+            measurementId: "G-NT280NZ1ZX"
+        };
+
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        
+        // App ID logic for pathing (defaults to generic if not provided by env)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'debtflow-pro-v1';
 
         // Elements
         const elements = {
@@ -514,26 +527,26 @@
         // Initialize App
         async function initApp() {
             try {
-                // If we are not already signed in, check for token or sign in anonymously
-                // But we let onAuthStateChanged handle the initial flow
-                // Only trigger anonymous sign in if no user is detected after a moment?
-                // Actually, standard practice: try to hook listener. If no user, sign in anon.
-                
-                // However, since we want to support persistent Google login, we should wait for auth state.
-                // If it resolves to null, THEN we sign in anonymously.
-                
+                // Listen for auth state changes
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
+                        // User is signed in
                         window.currentUser = user;
                         window.userId = user.uid;
                         updateAuthUI(user);
                         await loadData();
                     } else {
-                        // No user, sign in anonymously to ensure DB access
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
+                        // No user signed in.
+                        // Since you are using your own Firebase project, we CANNOT use the environment's __initial_auth_token.
+                        // We will attempt Anonymous sign-in instead.
+                        try {
                             await signInAnonymously(auth);
+                        } catch (anonErr) {
+                            console.warn("Anonymous sign-in failed. User might need to log in manually or enable Anonymous auth in console.", anonErr);
+                            // Optional: Alert user if critical
+                            if (anonErr.code === 'auth/operation-not-allowed') {
+                                alert("Please enable 'Anonymous' sign-in in your Firebase Console.");
+                            }
                         }
                     }
                 });
@@ -545,6 +558,7 @@
 
         async function loadData() {
             if (!window.userId) return;
+            // Path: artifacts/{appId}/users/{userId}/data/storage
             const docRef = doc(db, 'artifacts', appId, 'users', window.userId, 'data', 'storage');
             try {
                 const snap = await getDoc(docRef);
@@ -605,13 +619,11 @@
                 elements.authDisplayName.innerText = "Guest";
                 elements.userEmail.innerText = "Guest Account";
                 elements.userAvatar.innerText = "G";
-                // elements.userAvatar.src = ... (default)
                 elements.authBtnText.innerText = "Sign in with Google";
             } else {
                 elements.authDisplayName.innerText = user.displayName || "User";
                 elements.userEmail.innerText = user.email;
                 elements.userAvatar.innerText = (user.displayName || "U").charAt(0).toUpperCase();
-                // Optionally set avatar image if available
                 elements.authBtnText.innerText = "Sign Out";
             }
         }
@@ -769,8 +781,6 @@
             if (debtIndex === -1) return;
 
             const installments = generateInstallments(date, terms, selectedDays, monthlyAmount);
-            // On edit, we overwrite installments. Advanced usage might try to preserve 'paid' status of old dates if they match, but simpler to reset for clarity or you'd need complex diffing. 
-            // For now, reset is safer to ensure math correctness.
             window.debts[debtIndex] = { ...window.debts[debtIndex], name, debtor, fixedAmount: monthlyAmount, totalAmount: monthlyAmount * terms, date, terms, selectedDays, installments, isDone: false };
             window.closeModal('edit-modal');
             window.save();
@@ -825,7 +835,6 @@
                         const mK = dt.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
                         mSum[mK] = (mSum[mK] || 0) + inst.amount;
                         
-                        // Only add to allocation if it falls in the CURRENT MONTH
                         if (isCurrentMonth) {
                             if (pSum[dVal] !== undefined) pSum[dVal] += inst.amount;
                         }
