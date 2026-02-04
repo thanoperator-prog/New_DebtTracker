@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>DebtFlow Pro</title>
+    
+    <!-- PWA / Mobile App Meta Tags -->
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="application-name" content="DebtFlow">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #f8fafc;
+            color: #0f172a;
+            -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden; /* Prevent horizontal scroll on body */
+        }
+
+        /* Smooth Transitions */
+        .tab-content { 
+            display: none; 
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .tab-content.active { 
+            display: block; 
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Glassmorphism Utilities */
+        .glass {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+
+        /* Sidebar Navigation */
+        .nav-item.active {
+            background: #2563eb;
+            color: white;
+            box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.4);
+        }
+        .nav-item:not(.active):hover {
+            background-color: #f1f5f9;
+            color: #0f172a !important; 
+        }
+        .nav-item:not(.active):hover svg {
+            color: #0f172a !important;
+        }
+
+        /* Checkbox Tags */
+        .payday-checkbox:checked + label {
+            background-color: #2563eb;
+            border-color: #2563eb;
+            color: white;
+            transform: scale(0.98);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            align-items: center; /* Center vertically */
+            justify-content: center; /* Center horizontally */
+            padding: 1.5rem;
+            overflow-y: auto; /* Allow scroll if modal is tall */
+        }
+        .modal-active { display: flex !important; animation: fadeIn 0.2s ease-out; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Utilities */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .lender-tab-active {
+            background-color: #0f172a !important;
+            color: white !important;
+            border-color: #0f172a !important;
+        }
+
+        /* Mobile Bottom Nav Active State */
+        .mobile-nav-btn.active svg {
+            color: #2563eb;
+            fill: rgba(37, 99, 235, 0.1);
+        }
+        .mobile-nav-btn.active span {
+            color: #2563eb;
+            font-weight: 800;
+        }
+
+        /* Table Optimization */
+        td, th { white-space: nowrap; }
+    </style>
+</head>
+<body class="min-h-screen pb-32 md:pb-12 selection:bg-blue-100 selection:text-blue-900">
+
+    <!-- Mobile Header (Sticky) -->
+    <header class="md:hidden glass sticky top-0 z-40 px-5 py-4 flex justify-between items-center border-b border-slate-200/60 shadow-sm">
+        <h1 class="text-lg font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-600 tracking-tight">DebtFlow</h1>
+        <div class="bg-blue-600/10 border border-blue-100 px-3 py-1.5 rounded-full">
+            <p id="mobile-total" class="text-xs font-black text-blue-700">₱0.00</p>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 md:px-8 py-6 flex flex-col md:flex-row gap-8">
+        
+        <!-- Sidebar Navigation (Desktop) -->
+        <aside class="hidden md:flex flex-col w-72 h-[calc(100vh-3rem)] sticky top-6 space-y-6">
+            <div class="px-4">
+                <h1 class="text-2xl font-black text-slate-900 flex items-center gap-2 tracking-tight">
+                    <div class="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center text-white text-lg shadow-lg shadow-blue-200">D</div> 
+                    DebtFlow
+                </h1>
+            </div>
+            
+            <nav class="flex-1 space-y-2">
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="nav-item w-full flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-slate-500 transition-all active">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+                    Dashboard
+                </button>
+                <button onclick="switchTab('add')" id="btn-add" class="nav-item w-full flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-slate-500 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    Add Transaction
+                </button>
+                <button onclick="switchTab('records')" id="btn-records" class="nav-item w-full flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-slate-500 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                    Archives
+                </button>
+                <button onclick="switchTab('settings')" id="btn-settings" class="nav-item w-full flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-slate-500 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33"/></svg>
+                    Settings
+                </button>
+            </nav>
+
+            <div class="p-6 bg-slate-900 rounded-3xl text-white shadow-xl shadow-slate-300">
+                <p class="text-[10px] font-black uppercase opacity-60 mb-2 tracking-widest">Global Unpaid</p>
+                <p id="sidebar-total" class="text-2xl font-black tracking-tight">₱0.00</p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 w-full min-w-0">
+            
+            <!-- Dashboard Tab -->
+            <div id="dashboard" class="tab-content active space-y-8">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Dashboard</h2>
+                        <p class="text-slate-500 font-medium text-sm" id="current-date-display">--</p>
+                    </div>
+                    <!-- Dashboard Filter -->
+                    <div class="flex items-center gap-3 bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto">
+                        <select id="dashboard-lender-filter" onchange="render()" class="bg-transparent text-sm font-bold text-slate-700 outline-none w-full sm:w-48 px-3 py-2 cursor-pointer">
+                            <option value="all">Global View</option>
+                        </select>
+                        <div class="pr-3 text-slate-400 pointer-events-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                    <!-- Unpaid Card -->
+                    <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5H10.9v1.69c-1.51.32-2.72 1.3-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.86 2.97V19h2.34v-1.67c1.52-.29 2.72-1.16 2.73-2.77-.01-2.2-1.9-2.96-3.66-3.42z"/></svg>
+                        </div>
+                        <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Unpaid Balance</p>
+                        <p id="dash-total" class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">₱0.00</p>
+                        <div class="mt-4 flex items-center gap-2 text-[10px] font-bold bg-emerald-50 text-emerald-700 w-fit px-3 py-1 rounded-full border border-emerald-100">
+                            <span>Paid so far:</span>
+                            <span id="dash-paid-total">₱0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Next Payday Card -->
+                    <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative">
+                        <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Next Payment</p>
+                        <p id="dash-next-payday" class="text-xl md:text-2xl font-black text-slate-900 tracking-tight mt-1">--</p>
+                        <p class="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-wide">Upcoming Cycle</p>
+                    </div>
+
+                    <!-- Active Lenders Card -->
+                    <div class="bg-blue-600 p-6 rounded-[2rem] text-white shadow-lg shadow-blue-200 relative overflow-hidden">
+                        <div class="absolute -bottom-6 -right-6 bg-white/10 w-24 h-24 rounded-full blur-xl"></div>
+                        <p class="text-xs font-black opacity-70 uppercase tracking-widest mb-1">Active Lenders</p>
+                        <p id="dash-lender-count" class="text-4xl font-black tracking-tight">0</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 md:gap-8">
+                    <section class="space-y-4">
+                        <h3 class="text-lg font-black px-2 flex items-center gap-2 text-slate-800">
+                            <span class="w-1.5 h-6 bg-blue-600 rounded-full"></span>
+                            <span id="allocation-heading">This Month's Allocation</span>
+                        </h3>
+                        <div id="summary-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+                    </section>
+                    <section class="space-y-4">
+                        <h3 class="text-lg font-black px-2 flex items-center gap-2 text-slate-800">
+                            <span class="w-1.5 h-6 bg-indigo-600 rounded-full"></span>
+                            Unpaid by Lender
+                        </h3>
+                        <div id="debtor-summary" class="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm divide-y divide-slate-50"></div>
+                    </section>
+                </div>
+
+                <section class="space-y-4">
+                    <h3 class="text-lg font-black px-2 text-slate-800">Monthly Forecast</h3>
+                    <div id="monthly-summary" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+                </section>
+            </div>
+
+            <!-- Add Debt Tab -->
+            <div id="add" class="tab-content space-y-8">
+                <div class="max-w-3xl mx-auto xl:mx-0">
+                    <h2 class="text-2xl md:text-3xl font-black text-slate-900 mb-6 text-center md:text-left">New Transaction</h2>
+                    <div class="bg-white p-6 md:p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
+                        <form id="debt-form" class="space-y-8">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                                <div class="space-y-2">
+                                    <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Description</label>
+                                    <input type="text" id="debt-name" placeholder="e.g., Grocery" class="w-full bg-slate-50 rounded-2xl px-5 py-4 outline-none font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 transition-all">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Lender</label>
+                                    <input type="text" id="debtor-name" list="lender-suggestions" placeholder="Search or Type" class="w-full bg-slate-50 rounded-2xl px-5 py-4 outline-none font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 transition-all">
+                                    <datalist id="lender-suggestions"></datalist>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
+                                <div class="space-y-2">
+                                    <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Total Monthly (₱)</label>
+                                    <input type="number" id="debt-amount" step="0.01" class="w-full bg-slate-50 rounded-2xl px-5 py-4 outline-none font-black text-blue-600 text-xl focus:ring-2 focus:ring-blue-500 transition-all">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Start Date</label>
+                                    <input type="date" id="debt-date" class="w-full bg-slate-50 rounded-2xl px-5 py-4 outline-none font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 transition-all">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Terms (Months)</label>
+                                    <input type="number" id="debt-terms" min="1" value="1" class="w-full bg-slate-50 rounded-2xl px-5 py-4 outline-none font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 transition-all">
+                                </div>
+                            </div>
+
+                            <div class="space-y-4">
+                                <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Payday Cycle</label>
+                                <div id="payday-selection-grid" class="flex flex-wrap gap-3"></div>
+                                <p class="text-[10px] text-slate-400 font-medium ml-1">If multiple days are selected, the monthly amount will be split equally among those days.</p>
+                            </div>
+
+                            <button type="submit" class="w-full bg-slate-900 text-white font-black py-5 rounded-2xl shadow-xl hover:bg-blue-700 hover:shadow-blue-200 active:scale-[0.98] transition-all text-lg">
+                                Save Transaction
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Archives -->
+            <div id="records" class="tab-content space-y-8">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                    <h2 class="text-2xl md:text-3xl font-black text-slate-900">Archives</h2>
+                    <button onclick="clearAllDebts()" class="bg-red-50 text-red-600 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-red-100 transition-colors w-full sm:w-auto">Wipe All Records</button>
+                </div>
+
+                <div class="flex flex-col gap-6">
+                    <!-- Lender Tabs -->
+                    <div class="flex items-center gap-2 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0" id="lender-tabs-container"></div>
+                    
+                    <!-- Sub Filter -->
+                    <div class="flex border-b border-slate-200 w-full overflow-x-auto">
+                        <button onclick="switchRecordFilter('ongoing')" id="filter-ongoing" class="flex-1 sm:flex-none px-8 py-3 text-sm font-bold border-b-2 border-blue-600 text-blue-600 whitespace-nowrap transition-colors">Active Debts</button>
+                        <button onclick="switchRecordFilter('done')" id="filter-done" class="flex-1 sm:flex-none px-8 py-3 text-sm font-bold border-b-2 border-transparent text-slate-400 whitespace-nowrap transition-colors">Paid History</button>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left min-w-[600px]"> <!-- Enforce min-width for table scroll on mobile -->
+                            <thead class="bg-slate-50/80 border-b border-slate-100">
+                                <tr class="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                    <th class="px-6 md:px-8 py-5">Description</th>
+                                    <th class="px-6 md:px-8 py-5 text-right">Balance Info</th>
+                                    <th class="px-6 md:px-8 py-5">Cycle</th>
+                                    <th class="px-6 md:px-8 py-5 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="debt-list" class="divide-y divide-slate-50 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div id="settings" class="tab-content space-y-8">
+                <div class="max-w-md mx-auto md:mx-0">
+                    <h2 class="text-2xl md:text-3xl font-black text-slate-900 mb-6">Settings</h2>
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                        <h3 class="text-sm font-black text-slate-800 uppercase tracking-wider mb-4">Payday Dates Configuration</h3>
+                        <div class="flex gap-3 mb-6">
+                            <input type="number" id="payday-input" min="1" max="31" placeholder="Day (1-31)" class="w-full bg-slate-50 rounded-xl px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-blue-500">
+                            <button onclick="addPayday()" class="bg-blue-600 text-white px-6 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100">Add</button>
+                        </div>
+                        <div id="paydays-list" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Breakdown Modal -->
+    <div id="breakdown-modal" class="modal-overlay" onclick="closeModal('breakdown-modal')">
+        <div class="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden m-4" onclick="event.stopPropagation()">
+            <div class="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div>
+                    <h3 class="text-xl font-black text-slate-900" id="modal-title">Details</h3>
+                    <p class="text-xs font-bold text-slate-400 uppercase mt-1" id="modal-debtor">--</p>
+                </div>
+                <button onclick="closeModal('breakdown-modal')" class="w-10 h-10 bg-white border border-slate-200 rounded-full font-black text-slate-400 hover:text-slate-900 transition-colors">&times;</button>
+            </div>
+            <div class="max-h-[50vh] overflow-y-auto p-6 md:p-8 hide-scrollbar" id="modal-content"></div>
+            <div class="p-6 md:p-8 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                <div class="flex flex-col">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unpaid</span>
+                    <span class="text-xl font-black text-blue-600" id="modal-unpaid-amt">₱0.00</span>
+                </div>
+                <div class="flex flex-col text-right">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Loan</span>
+                    <span class="text-sm font-bold text-slate-400" id="modal-total-amt">₱0.00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal-overlay" onclick="closeModal('edit-modal')">
+        <div class="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden m-4" onclick="event.stopPropagation()">
+            <div class="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="text-xl font-black text-slate-900">Edit Transaction</h3>
+                <button onclick="closeModal('edit-modal')" class="w-10 h-10 bg-white border border-slate-200 rounded-full font-black text-slate-400 hover:text-slate-900">&times;</button>
+            </div>
+            <form id="edit-form" class="p-6 md:p-8 space-y-6 max-h-[70vh] overflow-y-auto hide-scrollbar">
+                <input type="hidden" id="edit-id">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</label>
+                        <input type="text" id="edit-name" class="w-full bg-slate-50 rounded-xl px-4 py-3 outline-none font-bold border border-slate-100 focus:border-blue-500">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lender</label>
+                        <input type="text" id="edit-debtor" class="w-full bg-slate-50 rounded-xl px-4 py-3 outline-none font-bold border border-slate-100 focus:border-blue-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Amount</label>
+                        <input type="number" id="edit-amount" class="w-full bg-slate-50 rounded-xl px-4 py-3 outline-none font-bold border border-slate-100 focus:border-blue-500">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date</label>
+                        <input type="date" id="edit-date" class="w-full bg-slate-50 rounded-xl px-4 py-3 outline-none font-bold border border-slate-100 focus:border-blue-500">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Terms</label>
+                        <input type="number" id="edit-terms" class="w-full bg-slate-50 rounded-xl px-4 py-3 outline-none font-bold border border-slate-100 focus:border-blue-500">
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cycle Days</label>
+                    <div id="edit-payday-grid" class="flex flex-wrap gap-2"></div>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition-all">Update Transaction</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Mobile Nav (Fixed Bottom) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 glass border-t border-slate-200/60 px-2 py-2 flex justify-around items-center z-50 rounded-t-[2rem] shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
+        <button onclick="switchTab('dashboard')" class="mobile-nav-btn p-3 flex flex-col items-center gap-1 text-slate-400 transition-all rounded-2xl active" id="m-btn-dashboard">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+            <span class="text-[9px] font-bold">Dash</span>
+        </button>
+        <button onclick="switchTab('add')" class="mobile-nav-btn p-3 flex flex-col items-center gap-1 text-slate-400 transition-all rounded-2xl" id="m-btn-add">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            <span class="text-[9px] font-bold">Add</span>
+        </button>
+        <button onclick="switchTab('records')" class="mobile-nav-btn p-3 flex flex-col items-center gap-1 text-slate-400 transition-all rounded-2xl" id="m-btn-records">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+            <span class="text-[9px] font-bold">Archive</span>
+        </button>
+        <button onclick="switchTab('settings')" class="mobile-nav-btn p-3 flex flex-col items-center gap-1 text-slate-400 transition-all rounded-2xl" id="m-btn-settings">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82"/></svg>
+            <span class="text-[9px] font-bold">Set</span>
+        </button>
+    </nav>
+
+    <script>
+        let paydays = JSON.parse(localStorage.getItem('paydays')) || [10, 22, 25];
+        let debts = JSON.parse(localStorage.getItem('debts')) || [];
+        let currentLenderFilter = 'all';
+        let currentStatusFilter = 'ongoing';
+
+        const elements = {
+            totalDash: document.getElementById('dash-total'),
+            paidDash: document.getElementById('dash-paid-total'),
+            totalSidebar: document.getElementById('sidebar-total'),
+            totalMobile: document.getElementById('mobile-total'),
+            summaryGrid: document.getElementById('summary-grid'),
+            monthlySummary: document.getElementById('monthly-summary'),
+            debtorSummary: document.getElementById('debtor-summary'),
+            debtList: document.getElementById('debt-list'),
+            paydaysList: document.getElementById('paydays-list'),
+            paydaySelectionGrid: document.getElementById('payday-selection-grid'),
+            lenderTabs: document.getElementById('lender-tabs-container'),
+            nextPayday: document.getElementById('dash-next-payday'),
+            lenderCount: document.getElementById('dash-lender-count'),
+            currentDate: document.getElementById('current-date-display'),
+            lenderSuggestions: document.getElementById('lender-suggestions'),
+            dashFilter: document.getElementById('dashboard-lender-filter'),
+            debtForm: document.getElementById('debt-form'),
+            editForm: document.getElementById('edit-form')
+        };
+
+        elements.currentDate.innerText = new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        document.getElementById('debt-date').value = new Date().toISOString().split('T')[0];
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.mobile-nav-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            document.getElementById('btn-' + tabId)?.classList.add('active');
+            document.getElementById('m-btn-' + tabId)?.classList.add('active');
+            
+            if (tabId === 'add') { updatePaydayCheckboxes('payday-selection-grid', 'selected-paydays'); updateSuggestions(); }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function switchRecordFilter(status) { 
+            currentStatusFilter = status; 
+            document.getElementById('filter-ongoing').className = status === 'ongoing' ? 'flex-1 sm:flex-none px-8 py-3 text-sm font-bold border-b-2 border-blue-600 text-blue-600 whitespace-nowrap transition-colors' : 'flex-1 sm:flex-none px-8 py-3 text-sm font-bold border-b-2 border-transparent text-slate-400 whitespace-nowrap transition-colors';
+            document.getElementById('filter-done').className = status === 'done' ? 'flex-1 sm:flex-none px-8 py-3 text-sm font-bold border-b-2 border-blue-600 text-blue-600 whitespace-nowrap transition-colors' : 'flex-1 sm:flex-none px-8 py-3 text-sm font-bold border-b-2 border-transparent text-slate-400 whitespace-nowrap transition-colors';
+            render(); 
+        }
+        function switchLenderTab(lender) { currentLenderFilter = lender; render(); }
+
+        function save() {
+            localStorage.setItem('paydays', JSON.stringify(paydays));
+            localStorage.setItem('debts', JSON.stringify(debts));
+            render();
+        }
+
+        function addPayday() {
+            const val = parseInt(document.getElementById('payday-input').value);
+            if (val >= 1 && val <= 31 && !paydays.includes(val)) {
+                paydays.push(val);
+                paydays.sort((a, b) => a - b);
+                document.getElementById('payday-input').value = '';
+                save();
+            }
+        }
+
+        function removePayday(val) { paydays = paydays.filter(p => p !== val); save(); }
+
+        function updatePaydayCheckboxes(containerId, name, preselected = []) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = paydays.map(day => `
+                <div class="relative">
+                    <input type="checkbox" id="${containerId}-${day}" name="${name}" value="${day}" class="hidden payday-checkbox" ${preselected.includes(day) || (preselected.length === 0) ? 'checked' : ''}>
+                    <label for="${containerId}-${day}" class="flex items-center justify-center w-20 h-12 border-2 border-slate-100 rounded-2xl cursor-pointer hover:bg-slate-50 transition-all font-black text-sm text-slate-600 select-none">Day ${day}</label>
+                </div>
+            `).join('');
+        }
+
+        function updateSuggestions() {
+            const lenders = [...new Set(debts.map(d => d.debtor))].sort();
+            elements.lenderSuggestions.innerHTML = lenders.map(l => `<option value="${l}">`).join('');
+        }
+
+        function toLocalDateString(date) {
+            const offset = date.getTimezoneOffset() * 60000;
+            return (new Date(date.getTime() - offset)).toISOString().split('T')[0];
+        }
+
+        function generateInstallments(startDateStr, terms, selectedDays, fixedMonthlyAmount) {
+            const installments = [];
+            const startDate = new Date(startDateStr);
+            const installmentAmount = fixedMonthlyAmount / selectedDays.length;
+
+            for (let t = 0; t < terms; t++) {
+                selectedDays.forEach(day => {
+                    let d = new Date(startDate.getFullYear(), startDate.getMonth() + t, day);
+                    if (t === 0 && startDate.getDate() > day) d.setMonth(d.getMonth() + 1);
+                    installments.push({ date: toLocalDateString(d), amount: installmentAmount, paid: false });
+                });
+            }
+            return installments;
+        }
+
+        elements.debtForm.onsubmit = (e) => {
+            e.preventDefault();
+            const name = document.getElementById('debt-name').value;
+            const debtor = document.getElementById('debtor-name').value;
+            const monthlyAmount = parseFloat(document.getElementById('debt-amount').value);
+            const dateStr = document.getElementById('debt-date').value;
+            const terms = parseInt(document.getElementById('debt-terms').value);
+            const selectedDays = Array.from(document.querySelectorAll('input[name="selected-paydays"]:checked')).map(cb => parseInt(cb.value));
+
+            if (!selectedDays.length) return alert("Select a cycle.");
+
+            const installments = generateInstallments(dateStr, terms, selectedDays, monthlyAmount);
+            debts.push({ id: Date.now(), name, debtor, totalAmount: monthlyAmount * terms, fixedAmount: monthlyAmount, date: dateStr, terms, selectedDays, installments, isDone: false });
+            document.getElementById('debt-form').reset();
+            save();
+            switchTab('dashboard');
+        };
+
+        function toggleInstallmentPaid(debtId, instIndex) {
+            const dIdx = debts.findIndex(d => d.id === debtId);
+            if (dIdx !== -1) {
+                debts[dIdx].installments[instIndex].paid = !debts[dIdx].installments[instIndex].paid;
+                debts[dIdx].isDone = debts[dIdx].installments.every(i => i.paid);
+                save();
+                showBreakdown(debtId);
+            }
+        }
+
+        function showBreakdown(id) {
+            const d = debts.find(x => x.id === id);
+            if (!d) return;
+            document.getElementById('modal-title').innerText = d.name;
+            document.getElementById('modal-debtor').innerText = "Lender: " + d.debtor;
+            const unpaid = d.installments.filter(i => !i.paid).reduce((s, i) => s + i.amount, 0);
+            document.getElementById('modal-unpaid-amt').innerText = fmt(unpaid);
+            document.getElementById('modal-total-amt').innerText = fmt(d.totalAmount);
+            document.getElementById('modal-content').innerHTML = d.installments.map((inst, i) => {
+                const [y, m, d_val] = inst.date.split('-');
+                const displayDate = new Date(y, m-1, d_val).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+                return `
+                <div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-none ${inst.paid ? 'opacity-40' : ''}">
+                    <div class="flex items-center gap-4">
+                        <button onclick="toggleInstallmentPaid(${d.id}, ${i})" class="w-10 h-10 rounded-full ${inst.paid ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'} flex items-center justify-center transition-all font-bold">
+                            ${inst.paid ? '✓' : ''}
+                        </button>
+                        <div><p class="text-sm font-bold ${inst.paid ? 'line-through text-slate-400' : 'text-slate-800'}">${displayDate}</p></div>
+                    </div>
+                    <span class="text-sm font-black text-slate-900">${fmt(inst.amount)}</span>
+                </div>`}).join('');
+            document.getElementById('breakdown-modal').classList.add('modal-active');
+        }
+
+        function openEditModal(id) {
+            const d = debts.find(x => x.id === id);
+            if (!d) return;
+            document.getElementById('edit-id').value = d.id;
+            document.getElementById('edit-name').value = d.name;
+            document.getElementById('edit-debtor').value = d.debtor;
+            document.getElementById('edit-amount').value = d.fixedAmount; 
+            document.getElementById('edit-date').value = d.date;
+            document.getElementById('edit-terms').value = d.terms;
+            updatePaydayCheckboxes('edit-payday-grid', 'edit-paydays', d.selectedDays);
+            document.getElementById('edit-modal').classList.add('modal-active');
+        }
+
+        elements.editForm.onsubmit = (e) => {
+            e.preventDefault();
+            const id = parseInt(document.getElementById('edit-id').value);
+            const name = document.getElementById('edit-name').value;
+            const debtor = document.getElementById('edit-debtor').value;
+            const monthlyAmount = parseFloat(document.getElementById('edit-amount').value);
+            const date = document.getElementById('edit-date').value;
+            const terms = parseInt(document.getElementById('edit-terms').value);
+            const selectedDays = Array.from(document.querySelectorAll('input[name="edit-paydays"]:checked')).map(cb => parseInt(cb.value));
+
+            const debtIndex = debts.findIndex(x => x.id === id);
+            if (debtIndex === -1) return;
+
+            const installments = generateInstallments(date, terms, selectedDays, monthlyAmount);
+            debts[debtIndex] = { ...debts[debtIndex], name, debtor, fixedAmount: monthlyAmount, totalAmount: monthlyAmount * terms, date, terms, selectedDays, installments };
+            closeModal('edit-modal');
+            save();
+        };
+
+        function closeModal(id) { document.getElementById(id).classList.remove('modal-active'); }
+        function deleteDebt(id) { if(confirm("Delete this record?")) { debts = debts.filter(d => d.id !== id); save(); } }
+        function clearAllDebts() { if(confirm("Wipe everything?")) { debts = []; save(); } }
+        const fmt = (v) => `₱${v.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+
+        function render() {
+            let unpaidTotal = 0, paidTotal = 0;
+            const pSum = {}, mSum = {}, dSum = {};
+            const activeLenders = new Set(), allLenders = new Set();
+            
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1;
+
+            paydays.forEach(p => pSum[p] = 0);
+            debts.forEach(d => allLenders.add(d.debtor));
+
+            const currentDashFilter = elements.dashFilter.value;
+            elements.dashFilter.innerHTML = `<option value="all">Global View</option>` + 
+                Array.from(allLenders).sort().map(l => `<option value="${l}" ${l === currentDashFilter ? 'selected' : ''}>${l}</option>`).join('');
+            
+            const dashFilter = elements.dashFilter.value;
+            const upcomingDates = [];
+
+            debts.forEach(d => {
+                const lenderMatch = dashFilter === 'all' || d.debtor === dashFilter;
+                
+                d.installments.forEach(inst => {
+                    const [yStr, mStr, dStr] = inst.date.split('-');
+                    const yVal = parseInt(yStr);
+                    const mVal = parseInt(mStr);
+                    const dVal = parseInt(dStr);
+                    const isCurrentMonth = (yVal === currentYear && mVal === currentMonth);
+
+                    if (inst.paid) { 
+                        if (lenderMatch) paidTotal += inst.amount; 
+                        return; 
+                    }
+                    
+                    if (lenderMatch) {
+                        unpaidTotal += inst.amount;
+                        activeLenders.add(d.debtor);
+                        dSum[d.debtor] = (dSum[d.debtor] || 0) + inst.amount;
+                        
+                        const dt = new Date(yVal, mVal-1, dVal);
+                        const mK = dt.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+                        mSum[mK] = (mSum[mK] || 0) + inst.amount;
+                        
+                        // Only add to allocation if it falls in the CURRENT MONTH
+                        if (isCurrentMonth) {
+                            if (pSum[dVal] !== undefined) pSum[dVal] += inst.amount;
+                        }
+
+                        if (dt >= new Date().setHours(0,0,0,0)) upcomingDates.push(dt);
+                    }
+                });
+            });
+
+            const curMonthName = now.toLocaleDateString('en-PH', { month: 'long' });
+            document.getElementById('allocation-heading').innerText = `Allocation for ${curMonthName}`;
+
+            const globalUnpaid = debts.flatMap(d => d.installments).filter(i => !i.paid).reduce((s, i) => s + i.amount, 0);
+            elements.totalSidebar.innerText = elements.totalMobile.innerText = fmt(globalUnpaid);
+            elements.totalDash.innerText = fmt(unpaidTotal);
+            elements.paidDash.innerText = fmt(paidTotal);
+            elements.lenderCount.innerText = activeLenders.size;
+
+            elements.summaryGrid.innerHTML = paydays.map(p => `
+                <div class="p-5 bg-white rounded-3xl border border-slate-100 shadow-sm transition-all hover:border-blue-200">
+                    <p class="text-[10px] font-black uppercase text-slate-400">Day ${p} (This Month)</p>
+                    <p class="text-lg font-black text-slate-900 mt-1">${fmt(pSum[p] || 0)}</p>
+                </div>
+            `).join('');
+
+            elements.debtorSummary.innerHTML = Object.entries(dSum).sort((a,b) => b[1]-a[1]).map(([n, b]) => `
+                <div class="flex justify-between items-center py-4 px-2 hover:bg-slate-50 transition-colors">
+                    <span class="text-sm font-bold text-slate-700">${n}</span>
+                    <span class="text-sm font-black text-slate-900">${fmt(b)}</span>
+                </div>
+            `).join('') || '<p class="p-6 text-center text-xs font-bold uppercase text-slate-400">Clear</p>';
+            
+            const sortedM = Object.keys(mSum).sort((a,b) => new Date(a) - new Date(b));
+            elements.monthlySummary.innerHTML = sortedM.map(m => `
+                <div class="p-5 bg-indigo-600 text-white rounded-[2rem] shadow-lg">
+                    <p class="text-[10px] font-black uppercase opacity-60">${m}</p>
+                    <p class="text-xl font-black mt-1">${fmt(mSum[m])}</p>
+                </div>
+            `).join('') || '<p class="text-xs text-slate-400 italic p-4">No forecast data.</p>';
+
+            elements.nextPayday.innerText = upcomingDates.length ? new Date(Math.min(...upcomingDates)).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : "--";
+
+            const allLendersArr = Array.from(allLenders).sort();
+            elements.lenderTabs.innerHTML = [`all`, ...allLendersArr].map(l => `<button onclick="switchLenderTab('${l}')" class="px-6 py-2 whitespace-nowrap text-sm font-bold rounded-xl transition-all ${currentLenderFilter === l ? 'lender-tab-active' : 'bg-white text-slate-500 border border-slate-200'}">${l === 'all' ? 'All Lenders' : l}</button>`).join('');
+
+            const filteredRecords = debts.filter(d => (currentLenderFilter === 'all' || d.debtor === currentLenderFilter) && (currentStatusFilter === 'ongoing' ? !d.isDone : d.isDone));
+            elements.debtList.innerHTML = filteredRecords.length ? [...filteredRecords].reverse().map(d => {
+                const paidCount = d.installments.filter(i => i.paid).length;
+                const instAmt = d.installments[0]?.amount || 0;
+                return `
+                <tr class="hover:bg-slate-50/50 transition">
+                    <td class="px-6 md:px-8 py-5"><div class="font-black text-slate-800">${d.name}</div><div class="text-[9px] font-bold text-blue-500 uppercase mt-0.5">${d.debtor}</div></td>
+                    <td class="px-6 md:px-8 py-5 text-right font-black text-slate-900">${fmt(d.totalAmount)}<div class="text-[9px] text-slate-400 uppercase">${fmt(instAmt)} x ${d.installments.length} Slots</div></td>
+                    <td class="px-6 md:px-8 py-5">
+                        <div class="flex flex-wrap gap-1">
+                            ${d.selectedDays.map(day => `<span class="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">${day}th</span>`).join('')}
+                        </div>
+                    </td>
+                    <td class="px-6 md:px-8 py-5 text-center flex items-center justify-center gap-3">
+                        <button onclick="showBreakdown(${d.id})" class="text-blue-600 hover:text-blue-800 font-black text-[10px] uppercase underline">Manage</button>
+                        <button onclick="openEditModal(${d.id})" class="text-slate-400 hover:text-slate-900 font-black text-[10px] uppercase">Edit</button>
+                        <button onclick="deleteDebt(${d.id})" class="text-slate-200 hover:text-red-500"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                    </td>
+                </tr>`}).join('') : `<tr><td colspan="4" class="p-16 text-center text-slate-300 font-black uppercase text-xs">No records</td></tr>`;
+
+            elements.paydaysList.innerHTML = paydays.map(p => `<span class="inline-flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-black">DAY ${p} <button onclick="removePayday(${p})" class="hover:text-red-400 ml-1">✕</button></span>`).join('');
+        }
+
+        render();
+    </script>
+</body>
+</html>
