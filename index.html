@@ -526,39 +526,57 @@
 
         // Initialize App
         async function initApp() {
+            // Safety timeout
+            setTimeout(() => {
+                if (elements.loader.style.display !== 'none') {
+                    elements.loader.style.display = 'none';
+                    console.warn("Forced loader removal due to timeout.");
+                }
+            }, 10000);
+
             try {
                 // Listen for auth state changes
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        // User is signed in
                         window.currentUser = user;
                         window.userId = user.uid;
                         updateAuthUI(user);
                         await loadData();
                     } else {
-                        // No user signed in.
-                        // Since you are using your own Firebase project, we CANNOT use the environment's __initial_auth_token.
-                        // We will attempt Anonymous sign-in instead.
-                        try {
-                            await signInAnonymously(auth);
-                        } catch (anonErr) {
-                            console.warn("Anonymous sign-in failed. User might need to log in manually or enable Anonymous auth in console.", anonErr);
-                            // Optional: Alert user if critical
-                            if (anonErr.code === 'auth/operation-not-allowed') {
-                                alert("Please enable 'Anonymous' sign-in in your Firebase Console.");
-                            }
-                        }
+                        // No user signed in. Force Anonymous login for this specific project.
+                        await attemptAnon();
                     }
                 });
             } catch (e) {
-                console.error("Auth failed", e);
+                console.error("Auth init failed", e);
                 elements.loader.style.display = 'none';
+                alert("Auth Error: " + e.message);
+            }
+        }
+
+        async function attemptAnon() {
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Anonymous auth failed", error);
+                elements.loader.style.display = 'none';
+                
+                // Specific Error Handling for Deployment
+                if (error.code === 'auth/operation-not-allowed') {
+                    alert("Setup Error: Please enable 'Anonymous' sign-in in your Firebase Console > Authentication > Sign-in method.");
+                } else if (error.code === 'auth/unauthorized-domain') {
+                    alert("Deployment Error: This domain is not authorized. Go to Firebase Console > Authentication > Settings > Authorized Domains and add this website URL.");
+                } else {
+                    console.log("Proceeding in offline/read-only mode until login.");
+                }
             }
         }
 
         async function loadData() {
-            if (!window.userId) return;
-            // Path: artifacts/{appId}/users/{userId}/data/storage
+            if (!window.userId) {
+                elements.loader.style.display = 'none';
+                return;
+            }
             const docRef = doc(db, 'artifacts', appId, 'users', window.userId, 'data', 'storage');
             try {
                 const snap = await getDoc(docRef);
@@ -567,15 +585,14 @@
                     window.paydays = data.paydays || [];
                     window.debts = data.debts || [];
                 } else {
-                    // New user or empty data
-                    window.paydays = [10, 25]; // Default
+                    window.paydays = [10, 25]; 
                     window.debts = [];
                     save(); 
                 }
                 window.render();
-                elements.loader.style.display = 'none';
             } catch(e) {
                 console.error("Load failed", e);
+            } finally {
                 elements.loader.style.display = 'none';
             }
         }
@@ -607,7 +624,6 @@
                 const provider = new GoogleAuthProvider();
                 try {
                     await signInWithPopup(auth, provider);
-                    // onAuthStateChanged will trigger reload of data
                 } catch (error) {
                     alert("Login Failed: " + error.message);
                 }
