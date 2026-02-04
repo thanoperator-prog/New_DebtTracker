@@ -464,7 +464,8 @@
         // Import Firebase SDKs (using stable v11.6.1 for compatibility)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // UPDATED IMPORTS: Added initializeFirestore
+        import { getFirestore, doc, setDoc, getDoc, collection, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global Variables
         window.paydays = [10, 22, 25];
@@ -488,7 +489,12 @@
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const db = getFirestore(app);
+        
+        // FIX: Use initializeFirestore with experimentalForceLongPolling to fix "offline" errors
+        const db = initializeFirestore(app, {
+            experimentalForceLongPolling: true, // Forces HTTP polling instead of WebSockets
+            localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) // Keeps data even if offline
+        });
         
         // App ID logic for pathing (defaults to generic if not provided by env)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'debtflow-pro-v1';
@@ -543,7 +549,7 @@
                         updateAuthUI(user);
                         await loadData();
                     } else {
-                        // No user signed in. Force Anonymous login for this specific project.
+                        // Attempt anonymous login if no user is signed in
                         await attemptAnon();
                     }
                 });
@@ -561,13 +567,12 @@
                 console.error("Anonymous auth failed", error);
                 elements.loader.style.display = 'none';
                 
-                // Specific Error Handling for Deployment
                 if (error.code === 'auth/operation-not-allowed') {
                     alert("Setup Error: Please enable 'Anonymous' sign-in in your Firebase Console > Authentication > Sign-in method.");
                 } else if (error.code === 'auth/unauthorized-domain') {
-                    alert("Deployment Error: This domain is not authorized. Go to Firebase Console > Authentication > Settings > Authorized Domains and add this website URL.");
+                    alert("Deployment Error: This domain is not authorized. Go to Firebase Console > Authentication > Settings > Authorized Domains.");
                 } else {
-                    console.log("Proceeding in offline/read-only mode until login.");
+                    console.log("Proceeding in offline mode.");
                 }
             }
         }
@@ -585,9 +590,19 @@
                     window.paydays = data.paydays || [];
                     window.debts = data.debts || [];
                 } else {
-                    window.paydays = [10, 25]; 
-                    window.debts = [];
-                    save(); 
+                    // New Account detected.
+                    // Check if we have "Guest" data currently in memory to migrate
+                    if (window.debts.length > 0) {
+                        console.log("Migrating Guest data to new Account...");
+                        save(); // Upload current guest data to new ID
+                        alert("Successfully synced your guest data to your account!");
+                        return; // Stop here, render will be called by save()
+                    } else {
+                        // Truly empty
+                        window.paydays = [10, 25]; 
+                        window.debts = [];
+                        save(); 
+                    }
                 }
                 window.render();
             } catch(e) {
