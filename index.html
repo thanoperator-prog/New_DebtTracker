@@ -204,7 +204,7 @@
                 <p class="text-[10px] font-black uppercase opacity-60 mb-2 tracking-widest">Global Unpaid</p>
                 <p id="sidebar-total" class="text-2xl font-black tracking-tight">₱0.00</p>
                 <p id="sidebar-status" class="text-[10px] text-emerald-400 mt-2 font-bold flex items-center gap-1">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span> <span id="auth-display-name">Guest</span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span> <span id="auth-display-name">Anonymous</span>
                 </p>
             </div>
         </aside>
@@ -372,18 +372,12 @@
                         <!-- Account Card -->
                         <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
                             <h3 class="text-sm font-black text-slate-800 uppercase tracking-wider mb-4">Account</h3>
-                            <div id="auth-section" class="flex flex-col gap-4">
-                                <div class="flex items-center gap-3 mb-2">
-                                    <div id="user-avatar" class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-black text-slate-500">G</div>
-                                    <div>
-                                        <p id="user-email" class="text-sm font-bold text-slate-900">Guest</p>
-                                        <p class="text-[10px] font-bold text-slate-400">Data saved locally</p>
-                                    </div>
+                            <div class="flex items-center gap-3">
+                                <div id="user-avatar" class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black">A</div>
+                                <div>
+                                    <p class="text-sm font-bold text-slate-900">Anonymous Mode</p>
+                                    <p class="text-[10px] font-bold text-slate-400" id="user-id-display">Connecting...</p>
                                 </div>
-                                <button id="auth-btn" onclick="handleAuth()" class="bg-white border-2 border-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors w-full">
-                                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/></svg>
-                                    <span id="auth-btn-text">Sign in with Google</span>
-                                </button>
                             </div>
                         </div>
 
@@ -490,10 +484,9 @@
     </nav>
 
     <script type="module">
-        // Import Firebase SDKs (using stable v11.6.1 for compatibility)
+        // Import Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // UPDATED IMPORTS: Added initializeFirestore
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global Variables
@@ -502,9 +495,8 @@
         window.currentLenderFilter = 'all';
         window.currentStatusFilter = 'ongoing';
         window.userId = null;
-        window.currentUser = null;
 
-        // --- FIREBASE CONFIGURATION (From your provided snippet) ---
+        // Firebase Configuration (New Debt Tracker)
         const firebaseConfig = {
             apiKey: "AIzaSyDfmB78T2pfXxPY0OIbS59JXblpv_oWlqE",
             authDomain: "newdebttracker.firebaseapp.com",
@@ -515,17 +507,15 @@
             measurementId: "G-NT280NZ1ZX"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         
-        // FIX: Use initializeFirestore with experimentalForceLongPolling to fix "offline" errors
+        // Using forced long-polling to prevent offline/network errors in some environments
         const db = initializeFirestore(app, {
-            experimentalForceLongPolling: true, // Forces HTTP polling instead of WebSockets
-            localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) // Keeps data even if offline
+            experimentalForceLongPolling: true, 
+            localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
         });
         
-        // App ID logic for pathing (defaults to generic if not provided by env)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'debtflow-pro-v1';
 
         // Elements
@@ -550,15 +540,7 @@
             editForm: document.getElementById('edit-form'),
             loader: document.getElementById('app-loader'),
             cloudStatus: document.getElementById('cloud-status'),
-            
-            // Auth UI
-            authDisplayName: document.getElementById('auth-display-name'),
-            userAvatar: document.getElementById('user-avatar'),
-            userEmail: document.getElementById('user-email'),
-            authBtn: document.getElementById('auth-btn'),
-            authBtnText: document.getElementById('auth-btn-text'),
-            
-            // Toast
+            userIdDisplay: document.getElementById('user-id-display'),
             toast: document.getElementById('toast'),
             toastMsg: document.getElementById('toast-message')
         };
@@ -571,48 +553,35 @@
 
         // Initialize App
         async function initApp() {
-            // Safety timeout
             setTimeout(() => {
                 if (elements.loader.style.display !== 'none') {
                     elements.loader.style.display = 'none';
-                    console.warn("Forced loader removal due to timeout.");
+                    console.warn("Forced loader removal.");
                 }
             }, 10000);
 
             try {
-                // Listen for auth state changes
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        window.currentUser = user;
                         window.userId = user.uid;
-                        updateAuthUI(user);
+                        elements.userIdDisplay.innerText = "ID: " + user.uid.substring(0, 8) + "...";
                         await loadData();
                     } else {
-                        // Attempt anonymous login if no user is signed in
-                        await attemptAnon();
+                        // Automatically sign in anonymously
+                        try {
+                            await signInAnonymously(auth);
+                        } catch (anonErr) {
+                            console.error("Anonymous auth failed", anonErr);
+                            elements.loader.style.display = 'none';
+                            if (anonErr.code === 'auth/operation-not-allowed') {
+                                alert("Please enable Anonymous Auth in Firebase Console.");
+                            }
+                        }
                     }
                 });
             } catch (e) {
                 console.error("Auth init failed", e);
                 elements.loader.style.display = 'none';
-                alert("Auth Error: " + e.message);
-            }
-        }
-
-        async function attemptAnon() {
-            try {
-                await signInAnonymously(auth);
-            } catch (error) {
-                console.error("Anonymous auth failed", error);
-                elements.loader.style.display = 'none';
-                
-                if (error.code === 'auth/operation-not-allowed') {
-                    alert("Setup Error: Please enable 'Anonymous' sign-in in your Firebase Console > Authentication > Sign-in method.");
-                } else if (error.code === 'auth/unauthorized-domain') {
-                    alert("Deployment Error: This domain is not authorized. Go to Firebase Console > Authentication > Settings > Authorized Domains.");
-                } else {
-                    console.log("Proceeding in offline mode.");
-                }
             }
         }
 
@@ -629,19 +598,16 @@
                     window.paydays = data.paydays || [];
                     window.debts = data.debts || [];
                 } else {
-                    // Check if we have data in memory to migrate (e.g. from Anon to Google)
-                    if (window.debts.length > 0) {
-                        showToast("Syncing your local data to account...");
-                        save();
-                    } else {
-                        window.paydays = [10, 25]; 
-                        window.debts = [];
-                        save(); 
-                    }
+                    window.paydays = [10, 25]; 
+                    window.debts = [];
+                    save(); 
                 }
                 window.render();
             } catch(e) {
                 console.error("Load failed", e);
+                if (e.code === 'permission-denied') {
+                    alert("Database permission denied. Please check Firebase Firestore Rules.");
+                }
             } finally {
                 elements.loader.style.display = 'none';
             }
@@ -660,37 +626,6 @@
             } catch (e) {
                 console.error("Save failed", e);
                 elements.cloudStatus.className = "w-2 h-2 rounded-full bg-red-500";
-            }
-        }
-
-        // Auth Functions
-        window.handleAuth = async () => {
-            if (window.currentUser && !window.currentUser.isAnonymous) {
-                // Logout
-                await signOut(auth);
-                window.location.reload();
-            } else {
-                // Login with Google
-                const provider = new GoogleAuthProvider();
-                try {
-                    await signInWithPopup(auth, provider);
-                } catch (error) {
-                    alert("Login Failed: " + error.message);
-                }
-            }
-        }
-
-        function updateAuthUI(user) {
-            if (user.isAnonymous) {
-                elements.authDisplayName.innerText = "Guest";
-                elements.userEmail.innerText = "Guest Account";
-                elements.userAvatar.innerText = "G";
-                elements.authBtnText.innerText = "Sign in with Google";
-            } else {
-                elements.authDisplayName.innerText = user.displayName || "User";
-                elements.userEmail.innerText = user.email;
-                elements.userAvatar.innerText = (user.displayName || "U").charAt(0).toUpperCase();
-                elements.authBtnText.innerText = "Sign Out";
             }
         }
 
@@ -748,7 +683,6 @@
             elements.lenderSuggestions.innerHTML = lenders.map(l => `<option value="${l}">`).join('');
         };
 
-        // Utility: Generate installments with Local Date String
         function toLocalDateString(date) {
             const offset = date.getTimezoneOffset() * 60000;
             return (new Date(date.getTime() - offset)).toISOString().split('T')[0];
