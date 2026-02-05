@@ -375,7 +375,7 @@
                             <div class="flex items-center gap-3">
                                 <div id="user-avatar" class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black">A</div>
                                 <div>
-                                    <p class="text-sm font-bold text-slate-900">Anonymous Mode</p>
+                                    <p class="text-sm font-bold text-slate-900">Multi-Device Sync Active</p>
                                     <p class="text-[10px] font-bold text-slate-400" id="user-id-display">Connecting...</p>
                                 </div>
                             </div>
@@ -460,6 +460,33 @@
                 </div>
                 <button type="submit" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition-all">Update Transaction</button>
             </form>
+        </div>
+    </div>
+    
+    <!-- Custom Confirm Modal -->
+    <div id="confirm-modal" class="modal-overlay" onclick="closeModal('confirm-modal')">
+        <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-6 text-center transform scale-100 transition-transform" onclick="event.stopPropagation()">
+            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </div>
+            <h3 class="text-xl font-black text-slate-900 mb-2">Are you sure?</h3>
+            <p id="confirm-message" class="text-sm text-slate-500 font-medium mb-6">This action cannot be undone.</p>
+            <div class="flex gap-3">
+                <button onclick="closeModal('confirm-modal')" class="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors">Cancel</button>
+                <button id="confirm-btn-action" class="flex-1 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-200">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="alert-modal" class="modal-overlay" onclick="closeModal('alert-modal')">
+        <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-6 text-center" onclick="event.stopPropagation()">
+            <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <h3 class="text-xl font-black text-slate-900 mb-2">Notice</h3>
+            <p id="alert-message" class="text-sm text-slate-500 font-medium mb-6">...</p>
+            <button onclick="closeModal('alert-modal')" class="w-full py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">Okay</button>
         </div>
     </div>
 
@@ -549,6 +576,24 @@
             elements.toast.classList.add('show');
             setTimeout(() => elements.toast.classList.remove('show'), 3000);
         }
+        
+        // Custom Alert/Confirm
+        window.showAlert = (msg) => {
+            document.getElementById('alert-message').innerText = msg;
+            document.getElementById('alert-modal').classList.add('modal-active');
+        };
+
+        window.showConfirm = (msg, callback) => {
+            document.getElementById('confirm-message').innerText = msg;
+            const btn = document.getElementById('confirm-btn-action');
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.onclick = () => {
+                callback();
+                window.closeModal('confirm-modal');
+            };
+            document.getElementById('confirm-modal').classList.add('modal-active');
+        };
 
         // Initialize App
         async function initApp() {
@@ -563,17 +608,16 @@
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         window.userId = user.uid;
-                        elements.userIdDisplay.innerText = "ID: " + user.uid.substring(0, 8) + "...";
+                        elements.userIdDisplay.innerText = "Mode: Synced Storage";
                         await loadData();
                     } else {
-                        // Automatically sign in anonymously
                         try {
                             await signInAnonymously(auth);
                         } catch (anonErr) {
                             console.error("Anonymous auth failed", anonErr);
                             elements.loader.style.display = 'none';
                             if (anonErr.code === 'auth/operation-not-allowed') {
-                                alert("Please enable Anonymous Auth in Firebase Console.");
+                                window.showAlert("Please enable Anonymous Auth in Firebase Console.");
                             }
                         }
                     }
@@ -589,7 +633,8 @@
                 elements.loader.style.display = 'none';
                 return;
             }
-            const docRef = doc(db, 'artifacts', appId, 'users', window.userId, 'data', 'storage');
+            // CHANGED PATH: Saving to shared location
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'global_storage_v2', 'shared_file');
             try {
                 const snap = await getDoc(docRef);
                 if (snap.exists()) {
@@ -599,13 +644,12 @@
                 } else {
                     window.paydays = [10, 25]; 
                     window.debts = [];
-                    save(); 
                 }
                 window.render();
             } catch(e) {
                 console.error("Load failed", e);
                 if (e.code === 'permission-denied') {
-                    alert("Database permission denied. Please check Firebase Firestore Rules.");
+                    window.showAlert("Database permission denied. Check Firebase Rules.");
                 }
             } finally {
                 elements.loader.style.display = 'none';
@@ -619,7 +663,8 @@
             elements.cloudStatus.className = "w-2 h-2 rounded-full bg-yellow-400 animate-pulse";
             
             try {
-                const docRef = doc(db, 'artifacts', appId, 'users', window.userId, 'data', 'storage');
+                // CHANGED PATH: Saving to shared location
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'global_storage_v2', 'shared_file');
                 await setDoc(docRef, { paydays: window.paydays, debts: window.debts });
                 elements.cloudStatus.className = "w-2 h-2 rounded-full bg-emerald-500";
             } catch (e) {
@@ -682,7 +727,6 @@
             elements.lenderSuggestions.innerHTML = lenders.map(l => `<option value="${l}">`).join('');
         };
 
-        // Utility: Generate installments with Local Date String
         function toLocalDateString(date) {
             const offset = date.getTimezoneOffset() * 60000;
             return (new Date(date.getTime() - offset)).toISOString().split('T')[0];
@@ -712,7 +756,7 @@
             const terms = parseInt(document.getElementById('debt-terms').value);
             const selectedDays = Array.from(document.querySelectorAll('input[name="selected-paydays"]:checked')).map(cb => parseInt(cb.value));
 
-            if (!selectedDays.length) return alert("Select a cycle.");
+            if (!selectedDays.length) return window.showAlert("Select a cycle.");
 
             const installments = generateInstallments(dateStr, terms, selectedDays, monthlyAmount);
             window.debts.push({ id: Date.now(), name, debtor, totalAmount: monthlyAmount * terms, fixedAmount: monthlyAmount, date: dateStr, terms, selectedDays, installments, isDone: false });
@@ -790,8 +834,22 @@
         };
 
         window.closeModal = (id) => { document.getElementById(id).classList.remove('modal-active'); };
-        window.deleteDebt = (id) => { if(confirm("Delete this record?")) { window.debts = window.debts.filter(d => d.id !== id); window.save(); showToast("Deleted"); } };
-        window.clearAllDebts = () => { if(confirm("Wipe everything?")) { window.debts = []; window.save(); showToast("All Records Cleared"); } };
+        
+        window.deleteDebt = (id) => { 
+            window.showConfirm("Delete this record?", () => {
+                window.debts = window.debts.filter(d => d.id !== id); 
+                window.save(); 
+                showToast("Deleted"); 
+            });
+        };
+        
+        window.clearAllDebts = () => { 
+            window.showConfirm("Wipe all records?", () => {
+                window.debts = []; 
+                window.save(); 
+                showToast("All Records Cleared"); 
+            });
+        };
         
         const fmt = (v) => `₱${v.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 
@@ -838,7 +896,6 @@
                         const mK = dt.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
                         mSum[mK] = (mSum[mK] || 0) + inst.amount;
                         
-                        // Only add to allocation if it falls in the CURRENT MONTH
                         if (isCurrentMonth) {
                             if (pSum[dVal] !== undefined) pSum[dVal] += inst.amount;
                         }
