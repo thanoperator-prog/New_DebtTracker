@@ -230,6 +230,23 @@
                     </div>
                 </div>
 
+                <!-- Overdue Alert (Hidden by default) -->
+                <div id="overdue-alert" class="hidden bg-red-50 border border-red-100 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-bounce-in">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-red-700">Overdue Payments Detected</p>
+                            <p class="text-xs text-red-500 font-medium">You have unpaid debts from previous dates.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 w-full sm:w-auto">
+                        <p class="text-xl font-black text-red-700" id="overdue-total">₱0.00</p>
+                        <button onclick="showOverdueDetails()" class="bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-700 transition-colors whitespace-nowrap">Review</button>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                     <!-- Unpaid Card -->
                     <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group">
@@ -246,9 +263,18 @@
 
                     <!-- Next Payday Card -->
                     <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative">
-                        <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Next Payment</p>
-                        <p id="dash-next-payday" class="text-xl md:text-2xl font-black text-slate-900 tracking-tight mt-1">--</p>
-                        <p class="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-wide">Upcoming Cycle</p>
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Next Payment</p>
+                                <p id="dash-next-payday" class="text-xl md:text-2xl font-black text-slate-900 tracking-tight mt-1">--</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center justify-between">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Scheduled</p>
+                            <button onclick="showNextPaymentDetails()" id="btn-view-breakdown" class="hidden bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors">
+                                View Breakdown
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Active Lenders Card -->
@@ -333,7 +359,6 @@
             <div id="records" class="tab-content space-y-8">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                     <h2 class="text-2xl md:text-3xl font-black text-slate-900">Archives</h2>
-                    <button onclick="clearAllDebts()" class="bg-red-50 text-red-600 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-red-100 transition-colors w-full sm:w-auto">Wipe All Records</button>
                 </div>
 
                 <div class="flex flex-col gap-6">
@@ -389,6 +414,15 @@
                                 <button onclick="addPayday()" class="bg-blue-600 text-white px-6 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100">Add</button>
                             </div>
                             <div id="paydays-list" class="flex flex-wrap gap-2"></div>
+                        </div>
+
+                        <!-- Danger Zone -->
+                        <div class="mt-8 pt-8 border-t border-slate-200">
+                             <h3 class="text-sm font-black text-red-600 uppercase tracking-wider mb-4">Danger Zone</h3>
+                             <div class="bg-red-50 p-6 rounded-[2rem] border border-red-100">
+                                <p class="text-xs text-red-500 mb-4 font-medium">This action will permanently delete all your financial records from all devices.</p>
+                                <button onclick="clearAllDebts()" class="w-full bg-red-600 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-700 transition-colors">Wipe All Records</button>
+                             </div>
                         </div>
                     </div>
                 </div>
@@ -506,7 +540,7 @@
         </button>
         <button onclick="switchTab('settings')" class="mobile-nav-btn p-3 flex flex-col items-center gap-1 text-slate-400 transition-all rounded-2xl" id="m-btn-settings">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82"/></svg>
-            <span class="text-[9px] font-bold">Set</span>
+            <span class="text-[9px] font-bold">Settings</span>
         </button>
     </nav>
 
@@ -515,14 +549,14 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global Variables
         window.paydays = [10, 22, 25];
         window.debts = [];
         window.currentLenderFilter = 'all';
         window.currentStatusFilter = 'ongoing';
         window.userId = null;
+        window.nextPaymentBreakdown = []; // Stores items for the modal
+        window.overdueItems = []; // Stores items for overdue modal
 
-        // Firebase Configuration (New Debt Tracker)
         const firebaseConfig = {
             apiKey: "AIzaSyDfmB78T2pfXxPY0OIbS59JXblpv_oWlqE",
             authDomain: "newdebttracker.firebaseapp.com",
@@ -535,16 +569,12 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        
-        // Using forced long-polling to prevent offline/network errors in some environments
         const db = initializeFirestore(app, {
             experimentalForceLongPolling: true, 
             localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
         });
-        
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'debtflow-pro-v1';
 
-        // Elements
         const elements = {
             totalDash: document.getElementById('dash-total'),
             paidDash: document.getElementById('dash-paid-total'),
@@ -568,7 +598,10 @@
             cloudStatus: document.getElementById('cloud-status'),
             userIdDisplay: document.getElementById('user-id-display'),
             toast: document.getElementById('toast'),
-            toastMsg: document.getElementById('toast-message')
+            toastMsg: document.getElementById('toast-message'),
+            overdueAlert: document.getElementById('overdue-alert'),
+            overdueTotal: document.getElementById('overdue-total'),
+            btnViewBreakdown: document.getElementById('btn-view-breakdown')
         };
 
         function showToast(message) {
@@ -577,7 +610,6 @@
             setTimeout(() => elements.toast.classList.remove('show'), 3000);
         }
         
-        // Custom Alert/Confirm
         window.showAlert = (msg) => {
             document.getElementById('alert-message').innerText = msg;
             document.getElementById('alert-modal').classList.add('modal-active');
@@ -595,7 +627,6 @@
             document.getElementById('confirm-modal').classList.add('modal-active');
         };
 
-        // Initialize App
         async function initApp() {
             setTimeout(() => {
                 if (elements.loader.style.display !== 'none') {
@@ -633,7 +664,6 @@
                 elements.loader.style.display = 'none';
                 return;
             }
-            // CHANGED PATH: Saving to shared location
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'global_storage_v2', 'shared_file');
             try {
                 const snap = await getDoc(docRef);
@@ -659,11 +689,8 @@
         window.save = async function() {
             window.render(); 
             if (!window.userId) return;
-            
             elements.cloudStatus.className = "w-2 h-2 rounded-full bg-yellow-400 animate-pulse";
-            
             try {
-                // CHANGED PATH: Saving to shared location
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'global_storage_v2', 'shared_file');
                 await setDoc(docRef, { paydays: window.paydays, debts: window.debts });
                 elements.cloudStatus.className = "w-2 h-2 rounded-full bg-emerald-500";
@@ -673,7 +700,6 @@
             }
         }
 
-        // Attach global functions for HTML inline events
         window.switchTab = (tabId) => {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -735,14 +761,34 @@
         function generateInstallments(startDateStr, terms, selectedDays, fixedMonthlyAmount) {
             const installments = [];
             const startDate = new Date(startDateStr);
-            const installmentAmount = fixedMonthlyAmount / selectedDays.length;
+            selectedDays.sort((a, b) => a - b);
+            
+            const totalItemsNeeded = terms * selectedDays.length;
+            // SPLIT LOGIC: Monthly Amount / Number of Paydays selected
+            const amountPerItem = fixedMonthlyAmount / selectedDays.length;
 
-            for (let t = 0; t < terms; t++) {
-                selectedDays.forEach(day => {
-                    let d = new Date(startDate.getFullYear(), startDate.getMonth() + t, day);
-                    if (t === 0 && startDate.getDate() > day) d.setMonth(d.getMonth() + 1);
-                    installments.push({ date: toLocalDateString(d), amount: installmentAmount, paid: false });
-                });
+            let currentYear = startDate.getFullYear();
+            let currentMonth = startDate.getMonth();
+            let safety = 0;
+            
+            while (installments.length < totalItemsNeeded && safety < 100) {
+                const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+                for (let day of selectedDays) {
+                    if (installments.length >= totalItemsNeeded) break;
+                    let actualDay = day > daysInMonth ? daysInMonth : day;
+                    let d = new Date(currentYear, currentMonth, actualDay);
+
+                    if (d > startDate) {
+                        installments.push({ 
+                            date: toLocalDateString(d), 
+                            amount: amountPerItem, 
+                            paid: false 
+                        });
+                    }
+                }
+                currentMonth++;
+                if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+                safety++;
             }
             return installments;
         }
@@ -772,7 +818,11 @@
                 window.debts[dIdx].installments[instIndex].paid = !window.debts[dIdx].installments[instIndex].paid;
                 window.debts[dIdx].isDone = window.debts[dIdx].installments.every(i => i.paid);
                 window.save();
-                window.showBreakdown(debtId);
+                
+                // Refresh visible modal if open
+                if(document.getElementById('breakdown-modal').classList.contains('modal-active')) {
+                     window.showBreakdown(debtId);
+                }
             }
         };
 
@@ -797,6 +847,58 @@
                     </div>
                     <span class="text-sm font-black text-slate-900">${fmt(inst.amount)}</span>
                 </div>`}).join('');
+            document.getElementById('breakdown-modal').classList.add('modal-active');
+        };
+
+        window.showNextPaymentDetails = () => {
+            if (window.nextPaymentBreakdown.length === 0) return;
+            
+            document.getElementById('modal-title').innerText = "Upcoming Payments";
+            document.getElementById('modal-debtor').innerText = "Items due soon";
+            
+            const total = window.nextPaymentBreakdown.reduce((s, i) => s + i.amount, 0);
+            document.getElementById('modal-unpaid-amt').innerText = fmt(total);
+            document.getElementById('modal-total-amt').innerText = "Total Due";
+
+            document.getElementById('modal-content').innerHTML = window.nextPaymentBreakdown.map(item => `
+                <div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-none">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">${item.lender.charAt(0)}</div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">${item.desc}</p>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase">${item.lender}</p>
+                        </div>
+                    </div>
+                    <span class="text-sm font-black text-slate-900">${fmt(item.amount)}</span>
+                </div>
+            `).join('');
+            
+            document.getElementById('breakdown-modal').classList.add('modal-active');
+        };
+
+        window.showOverdueDetails = () => {
+            if (window.overdueItems.length === 0) return;
+            
+            document.getElementById('modal-title').innerText = "Overdue Items";
+            document.getElementById('modal-debtor').innerText = "Missed Payments";
+            
+            const total = window.overdueItems.reduce((s, i) => s + i.amount, 0);
+            document.getElementById('modal-unpaid-amt').innerText = fmt(total);
+            document.getElementById('modal-total-amt').innerText = "Total Overdue";
+
+            document.getElementById('modal-content').innerHTML = window.overdueItems.map(item => `
+                <div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-none">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-bold text-xs">!</div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">${item.desc}</p>
+                            <p class="text-[10px] font-bold text-red-400 uppercase">Due: ${item.date}</p>
+                        </div>
+                    </div>
+                    <span class="text-sm font-black text-red-600">${fmt(item.amount)}</span>
+                </div>
+            `).join('');
+            
             document.getElementById('breakdown-modal').classList.add('modal-active');
         };
 
@@ -854,13 +956,20 @@
         const fmt = (v) => `₱${v.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 
         window.render = () => {
-            let unpaidTotal = 0, paidTotal = 0;
+            let unpaidTotal = 0, paidTotal = 0, overdueSum = 0;
             const pSum = {}, mSum = {}, dSum = {};
             const activeLenders = new Set(), allLenders = new Set();
             
             const now = new Date();
+            const todayStr = toLocalDateString(now); // Comparison string YYYY-MM-DD
             const currentYear = now.getFullYear();
             const currentMonth = now.getMonth() + 1;
+            
+            window.nextPaymentBreakdown = [];
+            window.overdueItems = [];
+            
+            // Collect ALL unpaid installments for Next Payment logic
+            let allUnpaidInst = [];
 
             window.paydays.forEach(p => pSum[p] = 0);
             window.debts.forEach(d => allLenders.add(d.debtor));
@@ -870,7 +979,6 @@
                 Array.from(allLenders).sort().map(l => `<option value="${l}" ${l === currentDashFilter ? 'selected' : ''}>${l}</option>`).join('');
             
             const dashFilter = elements.dashFilter.value;
-            const upcomingDates = [];
 
             window.debts.forEach(d => {
                 const lenderMatch = dashFilter === 'all' || d.debtor === dashFilter;
@@ -892,6 +1000,15 @@
                         activeLenders.add(d.debtor);
                         dSum[d.debtor] = (dSum[d.debtor] || 0) + inst.amount;
                         
+                        // Overdue Logic
+                        if (inst.date < todayStr) {
+                            overdueSum += inst.amount;
+                            window.overdueItems.push({ desc: d.name, lender: d.debtor, amount: inst.amount, date: inst.date });
+                        } else {
+                            // Upcoming for next payment calculation
+                             allUnpaidInst.push({ date: inst.date, amount: inst.amount, lender: d.debtor, desc: d.name });
+                        }
+                        
                         const dt = new Date(yVal, mVal-1, dVal);
                         const mK = dt.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
                         mSum[mK] = (mSum[mK] || 0) + inst.amount;
@@ -899,11 +1016,38 @@
                         if (isCurrentMonth) {
                             if (pSum[dVal] !== undefined) pSum[dVal] += inst.amount;
                         }
-
-                        if (dt >= new Date().setHours(0,0,0,0)) upcomingDates.push(dt);
                     }
                 });
             });
+            
+            // --- Overdue Alert Logic ---
+            if (overdueSum > 0) {
+                elements.overdueAlert.classList.remove('hidden');
+                elements.overdueAlert.classList.add('flex');
+                elements.overdueTotal.innerText = fmt(overdueSum);
+            } else {
+                elements.overdueAlert.classList.add('hidden');
+                elements.overdueAlert.classList.remove('flex');
+            }
+
+            // --- Next Payment Logic ---
+            if (allUnpaidInst.length > 0) {
+                // Sort by date ascending
+                allUnpaidInst.sort((a, b) => new Date(a.date) - new Date(b.date));
+                const nextDate = allUnpaidInst[0].date;
+                
+                // Get all items on that same next date
+                window.nextPaymentBreakdown = allUnpaidInst.filter(i => i.date === nextDate);
+                
+                const [ny, nm, nd] = nextDate.split('-');
+                const displayNext = new Date(ny, nm-1, nd).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+                
+                elements.nextPayday.innerText = displayNext;
+                elements.btnViewBreakdown.classList.remove('hidden');
+            } else {
+                elements.nextPayday.innerText = "--";
+                elements.btnViewBreakdown.classList.add('hidden');
+            }
 
             const curMonthName = now.toLocaleDateString('en-PH', { month: 'long' });
             document.getElementById('allocation-heading').innerText = `Allocation for ${curMonthName}`;
@@ -935,8 +1079,6 @@
                     <p class="text-xl font-black mt-1">${fmt(mSum[m])}</p>
                 </div>
             `).join('') || '<p class="text-xs text-slate-400 italic p-4">No forecast data.</p>';
-
-            elements.nextPayday.innerText = upcomingDates.length ? new Date(Math.min(...upcomingDates)).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : "--";
 
             const allLendersArr = Array.from(allLenders).sort();
             elements.lenderTabs.innerHTML = [`all`, ...allLendersArr].map(l => `<button onclick="switchLenderTab('${l}')" class="px-6 py-2 whitespace-nowrap text-sm font-bold rounded-xl transition-all ${window.currentLenderFilter === l ? 'lender-tab-active' : 'bg-white text-slate-500 border border-slate-200'}">${l === 'all' ? 'All Lenders' : l}</button>`).join('');
