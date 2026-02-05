@@ -64,6 +64,15 @@
             transform: scale(0.95);
         }
 
+        /* Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #2563eb;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #2563eb;
+        }
+
         .modal-overlay {
             display: none;
             position: fixed;
@@ -261,23 +270,28 @@
                         </div>
                     </div>
 
-                    <!-- Next Payday Card -->
+                    <!-- Next Due Date Card -->
                     <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative">
-                        <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Next Payment</p>
+                        <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Next Due Date</p>
                         <p id="dash-next-payday" class="text-xl md:text-2xl font-black text-slate-900 tracking-tight mt-1">--</p>
                         <div class="mt-4 flex items-center justify-between">
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Upcoming Cycle</p>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Exact Schedule</p>
                             <button onclick="showNextPaymentDetails()" id="btn-view-breakdown" class="hidden bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors">
                                 View Breakdown
                             </button>
                         </div>
                     </div>
 
-                    <!-- Active Lenders Card -->
+                    <!-- Next Payday Total Card -->
                     <div class="bg-blue-600 p-6 rounded-[2rem] text-white shadow-lg shadow-blue-200 relative overflow-hidden">
                         <div class="absolute -bottom-6 -right-6 bg-white/10 w-24 h-24 rounded-full blur-xl"></div>
-                        <p class="text-xs font-black opacity-70 uppercase tracking-widest mb-1">Active Lenders</p>
-                        <p id="dash-lender-count" class="text-4xl font-black tracking-tight">0</p>
+                        <div class="relative z-10">
+                            <p class="text-xs font-black opacity-70 uppercase tracking-widest mb-1" id="lbl-next-payday-sum">Next Payday Sum</p>
+                            <p id="dash-next-payday-sum" class="text-3xl font-black tracking-tight">₱0.00</p>
+                            <button onclick="showNextPaydayDetails()" class="mt-3 bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors backdrop-blur-sm">
+                                View Breakdown
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -338,9 +352,30 @@
                             </div>
 
                             <div class="space-y-4">
-                                <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Payday Cycle</label>
-                                <div id="payday-selection-grid" class="flex flex-wrap gap-3"></div>
-                                <p class="text-[10px] text-slate-400 font-medium ml-1">If multiple days are selected, the monthly amount will be split equally among those days.</p>
+                                <div class="flex items-center justify-between mb-4">
+                                    <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Payday Cycle</label>
+                                    <!-- Toggle -->
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">Auto</span>
+                                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                            <input type="checkbox" name="toggle" id="split-toggle" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-300"/>
+                                            <label for="split-toggle" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-300 cursor-pointer"></label>
+                                        </div>
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">Split</span>
+                                    </div>
+                                </div>
+
+                                <!-- Auto Display -->
+                                <div id="auto-payday-display" class="p-4 bg-blue-50 border border-blue-100 rounded-2xl text-center">
+                                    <p class="text-xs font-bold text-blue-400 uppercase">Auto-Assigned Payday</p>
+                                    <p id="next-payday-text" class="text-xl font-black text-blue-700 mt-1">--</p>
+                                </div>
+
+                                <!-- Manual Selection (Hidden by default) -->
+                                <div id="custom-payday-container" class="hidden">
+                                    <div id="payday-selection-grid" class="flex flex-wrap gap-3"></div>
+                                    <p class="text-[10px] text-slate-400 font-medium ml-1 mt-2">Check multiple days to split the monthly amount.</p>
+                                </div>
                             </div>
 
                             <button type="submit" class="w-full bg-slate-900 text-white font-black py-5 rounded-2xl shadow-xl hover:bg-blue-700 hover:shadow-blue-200 active:scale-[0.98] transition-all text-lg">
@@ -375,7 +410,7 @@
                                 <tr class="text-[10px] font-black uppercase text-slate-400 tracking-widest">
                                     <th class="px-6 md:px-8 py-5">Description</th>
                                     <th class="px-6 md:px-8 py-5 text-right">Balance Info</th>
-                                    <th class="px-6 md:px-8 py-5">Cycle</th>
+                                    <th class="px-6 md:px-8 py-5">Recurring Date</th>
                                     <th class="px-6 md:px-8 py-5 text-center">Action</th>
                                 </tr>
                             </thead>
@@ -552,6 +587,7 @@
         window.currentStatusFilter = 'ongoing';
         window.userId = null;
         window.nextPaymentBreakdown = [];
+        window.nextPaydayBreakdown = []; // Stores items for the payday total card
         window.overdueItems = [];
 
         const firebaseConfig = {
@@ -585,7 +621,7 @@
             paydaySelectionGrid: document.getElementById('payday-selection-grid'),
             lenderTabs: document.getElementById('lender-tabs-container'),
             nextPayday: document.getElementById('dash-next-payday'),
-            lenderCount: document.getElementById('dash-lender-count'),
+            // Removed lenderCount element
             currentDate: document.getElementById('current-date-display'),
             lenderSuggestions: document.getElementById('lender-suggestions'),
             dashFilter: document.getElementById('dashboard-lender-filter'),
@@ -598,7 +634,13 @@
             toastMsg: document.getElementById('toast-message'),
             overdueAlert: document.getElementById('overdue-alert'),
             overdueTotal: document.getElementById('overdue-total'),
-            btnViewBreakdown: document.getElementById('btn-view-breakdown')
+            btnViewBreakdown: document.getElementById('btn-view-breakdown'),
+            splitToggle: document.getElementById('split-toggle'),
+            autoPaydayDisplay: document.getElementById('auto-payday-display'),
+            nextPaydayText: document.getElementById('next-payday-text'),
+            customPaydayContainer: document.getElementById('custom-payday-container'),
+            lblNextPaydaySum: document.getElementById('lbl-next-payday-sum'),
+            dashNextPaydaySum: document.getElementById('dash-next-payday-sum')
         };
 
         function showToast(message) {
@@ -709,9 +751,70 @@
             if (tabId === 'add') { 
                 window.updatePaydayCheckboxes('payday-selection-grid', 'selected-paydays'); 
                 window.updateSuggestions(); 
+                // Initialize toggle state
+                elements.splitToggle.checked = false;
+                elements.autoPaydayDisplay.classList.remove('hidden');
+                elements.customPaydayContainer.classList.add('hidden');
+                window.updateAutoPaydayDisplay();
             }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
+
+        // --- NEW: Toggle Logic ---
+        elements.splitToggle.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                // Split Mode
+                elements.autoPaydayDisplay.classList.add('hidden');
+                elements.customPaydayContainer.classList.remove('hidden');
+            } else {
+                // Auto Mode
+                elements.autoPaydayDisplay.classList.remove('hidden');
+                elements.customPaydayContainer.classList.add('hidden');
+                window.updateAutoPaydayDisplay();
+            }
+        });
+
+        document.getElementById('debt-date').addEventListener('change', () => {
+             if (!elements.splitToggle.checked) {
+                 window.updateAutoPaydayDisplay();
+             }
+        });
+
+        window.updateAutoPaydayDisplay = () => {
+             const dateVal = document.getElementById('debt-date').value;
+             if (!dateVal || window.paydays.length === 0) {
+                 elements.nextPaydayText.innerText = "--";
+                 return;
+             }
+             const nextDay = getAutoPaydayDay(dateVal); // Use new smart logic
+             elements.nextPaydayText.innerText = `Day ${nextDay}`;
+        };
+
+        function getAutoPaydayDay(dateStr) {
+            if (!window.paydays.length) return null;
+            const startDate = new Date(dateStr);
+            const day = startDate.getDate();
+            const sorted = [...window.paydays].sort((a,b) => a-b);
+            
+            // "Smart Bucket" Logic:
+            // 10-21 -> 10
+            // 22-24 -> 22
+            // 25-9  -> 25
+            
+            // Filter days <= current day.
+            const validCandidates = sorted.filter(p => p <= day);
+            if (validCandidates.length > 0) {
+                // Return the payday that is <= current day
+                // e.g. Day 15. sorted=[10, 22]. <= returns [10]. Result 10. Correct.
+                // e.g. Day 22. sorted=[10, 22]. <= returns [10, 22]. Result 22. Correct.
+                return validCandidates[validCandidates.length - 1]; 
+            } else {
+                // If current day is smaller than all paydays (e.g. Day 5), it belongs to the previous month's largest cycle
+                // effectively wrapping around to the largest payday.
+                return sorted[sorted.length - 1]; 
+            }
+        }
+
 
         window.switchRecordFilter = (status) => { 
             window.currentStatusFilter = status; 
@@ -755,36 +858,57 @@
             return (new Date(date.getTime() - offset)).toISOString().split('T')[0];
         }
 
-        function generateInstallments(startDateStr, terms, selectedDays, fixedMonthlyAmount) {
+        function generateInstallments(startDateStr, terms, selectedDays, fixedMonthlyAmount, isSplitMode) {
             const installments = [];
             const startDate = new Date(startDateStr);
-            selectedDays.sort((a, b) => a - b);
+            const startDay = startDate.getDate();
             
-            const totalItemsNeeded = terms * selectedDays.length;
-            const amountPerItem = fixedMonthlyAmount / selectedDays.length;
+            const amountPerItem = isSplitMode ? (fixedMonthlyAmount / selectedDays.length) : fixedMonthlyAmount;
 
             let currentYear = startDate.getFullYear();
             let currentMonth = startDate.getMonth();
-            let safety = 0;
             
-            while (installments.length < totalItemsNeeded && safety < 100) {
-                const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-                for (let day of selectedDays) {
-                    if (installments.length >= totalItemsNeeded) break;
-                    let actualDay = day > daysInMonth ? daysInMonth : day;
-                    let d = new Date(currentYear, currentMonth, actualDay);
-
-                    if (d > startDate) {
-                        installments.push({ 
-                            date: toLocalDateString(d), 
-                            amount: amountPerItem, 
-                            paid: false 
-                        });
+            for (let t = 0; t < terms; t++) {
+                // If Auto Mode (Recurring on EXACT SAME DAY of each month)
+                if (!isSplitMode) {
+                     // Check if month rolls over correctly (e.g. Jan 31 -> Feb 28)
+                    let d = new Date(currentYear, currentMonth + t, startDay);
+                    // Adjust for shorter months
+                    if (d.getMonth() !== (currentMonth + t) % 12) {
+                        d = new Date(currentYear, currentMonth + t + 1, 0); // Set to last day of valid month
                     }
+                    
+                    // Smart Bucket: Even if due date is 7th, if bucket logic says it belongs to 25th, assign to 25th bucket for view
+                    const bucket = getAutoPaydayDay(toLocalDateString(d));
+
+                    installments.push({ 
+                        date: toLocalDateString(d), 
+                        amount: amountPerItem, 
+                        paid: false,
+                        bucket: bucket 
+                    });
+                } 
+                // If Split Mode (Aligned to paydays)
+                else {
+                    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+                    for (let day of selectedDays) {
+                        let actualDay = day > daysInMonth ? daysInMonth : day;
+                        let d = new Date(currentYear, currentMonth, actualDay);
+                        
+                        // Only add if date is equal or after start date
+                        if (d >= startDate) {
+                             installments.push({ 
+                                date: toLocalDateString(d), 
+                                amount: amountPerItem, 
+                                paid: false,
+                                bucket: day // Bucket is explicit in split mode
+                            });
+                        }
+                    }
+                     // Move to next month for next iteration
+                    currentMonth++;
+                    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
                 }
-                currentMonth++;
-                if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-                safety++;
             }
             return installments;
         }
@@ -796,13 +920,40 @@
             const monthlyAmount = parseFloat(document.getElementById('debt-amount').value);
             const dateStr = document.getElementById('debt-date').value;
             const terms = parseInt(document.getElementById('debt-terms').value);
-            const selectedDays = Array.from(document.querySelectorAll('input[name="selected-paydays"]:checked')).map(cb => parseInt(cb.value));
+            
+            let selectedDays = [];
+            let isSplit = elements.splitToggle.checked;
+            
+            if (isSplit) {
+                selectedDays = Array.from(document.querySelectorAll('input[name="selected-paydays"]:checked')).map(cb => parseInt(cb.value));
+                if (!selectedDays.length) return window.showAlert("Select at least one day to split.");
+            } else {
+                if (!window.paydays.length) return window.showAlert("Please configure Paydays in Settings first.");
+                const nextDay = getAutoPaydayDay(dateStr);
+                selectedDays = [nextDay];
+            }
 
-            if (!selectedDays.length) return window.showAlert("Select a cycle.");
-
-            const installments = generateInstallments(dateStr, terms, selectedDays, monthlyAmount);
-            window.debts.push({ id: Date.now(), name, debtor, totalAmount: monthlyAmount * terms, fixedAmount: monthlyAmount, date: dateStr, terms, selectedDays, installments, isDone: false });
+            const installments = generateInstallments(dateStr, terms, selectedDays, monthlyAmount, isSplit);
+            
+            window.debts.push({ 
+                id: Date.now(), 
+                name, 
+                debtor, 
+                totalAmount: monthlyAmount * terms, 
+                fixedAmount: monthlyAmount, 
+                date: dateStr, 
+                terms, 
+                selectedDays: isSplit ? selectedDays : [getAutoPaydayDay(dateStr)], 
+                installments, 
+                isDone: false 
+            });
+            
             document.getElementById('debt-form').reset();
+            // Reset UI state
+            elements.splitToggle.checked = false;
+            elements.autoPaydayDisplay.classList.remove('hidden');
+            elements.customPaydayContainer.classList.add('hidden');
+            
             window.save();
             showToast("Transaction Saved");
             window.switchTab('dashboard');
@@ -820,6 +971,7 @@
                 if(document.getElementById('breakdown-modal').classList.contains('modal-active')) {
                     if(modalTitle === "Upcoming Payments") window.showNextPaymentDetails();
                     else if(modalTitle === "Overdue Items") window.showOverdueDetails();
+                    else if(modalTitle === "Next Payday Cycle") window.showNextPaydayDetails();
                     else window.showBreakdown(debtId);
                 }
             }
@@ -838,6 +990,9 @@
             document.getElementById('modal-content').innerHTML = d.installments.map((inst, i) => {
                 const [y, m, d_val] = inst.date.split('-');
                 const displayDate = new Date(y, m-1, d_val).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+                // Use stored bucket or calculate dynamic if missing (backward compatibility)
+                const bucket = inst.bucket || getAutoPaydayDay(inst.date);
+                
                 return `
                 <div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-none ${inst.paid ? 'opacity-40' : ''}">
                     <div class="flex items-center gap-4">
@@ -846,7 +1001,7 @@
                         </button>
                         <div>
                             <p class="text-sm font-bold ${inst.paid ? 'line-through text-slate-400' : 'text-slate-800'}">Due: ${displayDate}</p>
-                            
+                            <p class="text-[10px] font-bold text-slate-400 uppercase">Payday ${bucket}</p>
                         </div>
                     </div>
                     <span class="text-sm font-black text-slate-900">${fmt(inst.amount)}</span>
@@ -884,6 +1039,41 @@
                     <span class="text-sm font-black text-slate-900">${fmt(item.amount)}</span>
                 </div>
             `).join('');
+            
+            document.getElementById('breakdown-modal').classList.add('modal-active');
+        };
+        
+        // NEW: View Breakdown for Next Payday Sum
+        window.showNextPaydayDetails = () => {
+             if (window.nextPaydayBreakdown.length === 0) {
+                 return;
+            }
+            
+            document.getElementById('modal-title').innerText = "Next Payday Cycle";
+            document.getElementById('modal-debtor').innerText = "Items allocated to this salary";
+            document.getElementById('modal-incurred').innerText = "";
+            
+            const total = window.nextPaydayBreakdown.reduce((s, i) => s + i.amount, 0);
+            document.getElementById('modal-unpaid-amt').innerText = fmt(total);
+            document.getElementById('modal-total-amt').innerText = "Total Allocation";
+
+            document.getElementById('modal-content').innerHTML = window.nextPaydayBreakdown.map(item => {
+                 const [y, m, d_val] = item.date.split('-');
+                 const displayDate = new Date(y, m-1, d_val).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+                 return `
+                <div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-none">
+                    <div class="flex items-center gap-4">
+                        <button onclick="toggleInstallmentPaid(${item.debtId}, ${item.instIndex})" class="w-10 h-10 rounded-full bg-slate-100 text-slate-400 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all font-bold">
+                            ✓
+                        </button>
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">${item.desc}</p>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase">Due: ${displayDate} (${item.lender})</p>
+                        </div>
+                    </div>
+                    <span class="text-sm font-black text-slate-900">${fmt(item.amount)}</span>
+                </div>
+            `}).join('');
             
             document.getElementById('breakdown-modal').classList.add('modal-active');
         };
@@ -936,6 +1126,7 @@
             document.getElementById('edit-amount').value = d.fixedAmount; 
             document.getElementById('edit-date').value = d.date;
             document.getElementById('edit-terms').value = d.terms;
+            // Handle legacy edit checkboxes if needed, or simple split toggle logic if edit supports it
             window.updatePaydayCheckboxes('edit-payday-grid', 'edit-paydays', d.selectedDays);
             document.getElementById('edit-modal').classList.add('modal-active');
         };
@@ -948,12 +1139,15 @@
             const monthlyAmount = parseFloat(document.getElementById('edit-amount').value);
             const date = document.getElementById('edit-date').value;
             const terms = parseInt(document.getElementById('edit-terms').value);
+            // Check checkboxes for edit - assume if multiple checked -> split logic
             const selectedDays = Array.from(document.querySelectorAll('input[name="edit-paydays"]:checked')).map(cb => parseInt(cb.value));
+            
+            const isSplit = selectedDays.length > 1;
 
             const debtIndex = window.debts.findIndex(x => x.id === id);
             if (debtIndex === -1) return;
 
-            const installments = generateInstallments(date, terms, selectedDays, monthlyAmount);
+            const installments = generateInstallments(date, terms, selectedDays, monthlyAmount, isSplit);
             window.debts[debtIndex] = { ...window.debts[debtIndex], name, debtor, fixedAmount: monthlyAmount, totalAmount: monthlyAmount * terms, date, terms, selectedDays, installments, isDone: false };
             window.closeModal('edit-modal');
             window.save();
@@ -986,14 +1180,23 @@
             const activeLenders = new Set(), allLenders = new Set();
             
             const now = new Date();
-            const todayStr = toLocalDateString(now); // Comparison string YYYY-MM-DD
+            const todayStr = toLocalDateString(now); 
             const currentYear = now.getFullYear();
             const currentMonth = now.getMonth() + 1;
             
+            // Get upcoming payday day
+            let nextCycleDay = null;
+            if(window.paydays.length > 0) {
+                 const dayOfMonth = now.getDate();
+                 const sortedP = [...window.paydays].sort((a,b)=>a-b);
+                 nextCycleDay = sortedP.find(p => p >= dayOfMonth);
+                 if (!nextCycleDay) nextCycleDay = sortedP[0]; // Wrap to next month
+            }
+            
             window.nextPaymentBreakdown = [];
+            window.nextPaydayBreakdown = [];
             window.overdueItems = [];
             
-            // Collect ALL unpaid installments for Next Payment logic
             let allUnpaidInst = [];
 
             window.paydays.forEach(p => pSum[p] = 0);
@@ -1008,12 +1211,15 @@
             window.debts.forEach(d => {
                 const lenderMatch = dashFilter === 'all' || d.debtor === dashFilter;
                 
-                d.installments.forEach((inst, i) => { // Capture index 'i'
+                d.installments.forEach((inst, i) => { 
                     const [yStr, mStr, dStr] = inst.date.split('-');
                     const yVal = parseInt(yStr);
                     const mVal = parseInt(mStr);
                     const dVal = parseInt(dStr);
                     const isCurrentMonth = (yVal === currentYear && mVal === currentMonth);
+                    
+                    // Bucket logic: Use saved or calculate.
+                    const bucket = inst.bucket || getAutoPaydayDay(inst.date);
 
                     if (inst.paid) { 
                         if (lenderMatch) paidTotal += inst.amount; 
@@ -1025,7 +1231,19 @@
                         activeLenders.add(d.debtor);
                         dSum[d.debtor] = (dSum[d.debtor] || 0) + inst.amount;
                         
-                        // Overdue Logic
+                        // Populate Next Payday Breakdown
+                        // Logic: If bucket matches next cycle AND it is unpaid (regardless of date, it belongs to this cycle bucket)
+                        if (bucket === nextCycleDay) {
+                            window.nextPaydayBreakdown.push({
+                                date: inst.date,
+                                amount: inst.amount,
+                                lender: d.debtor,
+                                desc: d.name,
+                                debtId: d.id,
+                                instIndex: i
+                            });
+                        }
+                        
                         if (inst.date < todayStr) {
                             overdueSum += inst.amount;
                             window.overdueItems.push({ 
@@ -1037,7 +1255,6 @@
                                 instIndex: i 
                             });
                         } else {
-                            // Upcoming for next payment calculation
                              allUnpaidInst.push({ 
                                  date: inst.date, 
                                  amount: inst.amount, 
@@ -1048,12 +1265,11 @@
                              });
                         }
                         
-                        const dt = new Date(yVal, mVal-1, dVal);
-                        const mK = dt.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+                        const mK = new Date(yVal, mVal-1, dVal).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
                         mSum[mK] = (mSum[mK] || 0) + inst.amount;
                         
                         if (isCurrentMonth) {
-                            if (pSum[dVal] !== undefined) pSum[dVal] += inst.amount;
+                            if (pSum[bucket] !== undefined) pSum[bucket] += inst.amount;
                         }
                     }
                 });
@@ -1071,22 +1287,23 @@
 
             // --- Next Payment Logic ---
             if (allUnpaidInst.length > 0) {
-                // Sort by date ascending
                 allUnpaidInst.sort((a, b) => new Date(a.date) - new Date(b.date));
                 const nextDate = allUnpaidInst[0].date;
-                
-                // Get all items on that same next date
                 window.nextPaymentBreakdown = allUnpaidInst.filter(i => i.date === nextDate);
-                
                 const [ny, nm, nd] = nextDate.split('-');
                 const displayNext = new Date(ny, nm-1, nd).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
-                
                 elements.nextPayday.innerText = displayNext;
                 elements.btnViewBreakdown.classList.remove('hidden');
             } else {
                 elements.nextPayday.innerText = "--";
                 elements.btnViewBreakdown.classList.add('hidden');
             }
+            
+            // --- Next Payday Sum Logic ---
+            const nextPaydayTotal = window.nextPaydayBreakdown.reduce((s,i) => s + i.amount, 0);
+            elements.dashNextPaydaySum.innerText = fmt(nextPaydayTotal);
+            elements.lblNextPaydaySum.innerText = `Upcoming Payday ${nextCycleDay ? '(' + nextCycleDay + 'th)' : ''}`;
+
 
             const curMonthName = now.toLocaleDateString('en-PH', { month: 'long' });
             document.getElementById('allocation-heading').innerText = `Allocation for ${curMonthName}`;
@@ -1095,7 +1312,7 @@
             elements.totalSidebar.innerText = elements.totalMobile.innerText = fmt(globalUnpaid);
             elements.totalDash.innerText = fmt(unpaidTotal);
             elements.paidDash.innerText = fmt(paidTotal);
-            elements.lenderCount.innerText = activeLenders.size;
+            // Removed lenderCount update since element removed
 
             elements.summaryGrid.innerHTML = window.paydays.map(p => `
                 <div class="p-5 bg-white rounded-3xl border border-slate-100 shadow-sm transition-all hover:border-blue-200">
@@ -1126,13 +1343,15 @@
             elements.debtList.innerHTML = filteredRecords.length ? [...filteredRecords].reverse().map(d => {
                 const paidCount = d.installments.filter(i => i.paid).length;
                 const instAmt = d.installments[0]?.amount || 0;
+                // If recurring/auto mode, date label is just the start date day
+                const label = d.selectedDays.length === 1 ? `Every ${new Date(d.date).getDate()}th` : `Split: ${d.selectedDays.join(', ')}`;
                 return `
                 <tr class="hover:bg-slate-50/50 transition">
                     <td class="px-6 md:px-8 py-5"><div class="font-black text-slate-800">${d.name}</div><div class="text-[9px] font-bold text-blue-500 uppercase mt-0.5">${d.debtor}</div></td>
                     <td class="px-6 md:px-8 py-5 text-right font-black text-slate-900">${fmt(d.totalAmount)}<div class="text-[9px] text-slate-400 uppercase">${fmt(instAmt)} x ${d.installments.length} Slots</div></td>
                     <td class="px-6 md:px-8 py-5">
                         <div class="flex flex-wrap gap-1">
-                            ${d.selectedDays.map(day => `<span class="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">${day}th</span>`).join('')}
+                             <span class="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">${label}</span>
                         </div>
                     </td>
                     <td class="px-6 md:px-8 py-5 text-center flex items-center justify-center gap-3">
