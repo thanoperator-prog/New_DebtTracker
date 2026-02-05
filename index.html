@@ -243,7 +243,7 @@
                     </div>
                     <div class="flex items-center gap-4 w-full sm:w-auto">
                         <p class="text-xl font-black text-red-700" id="overdue-total">₱0.00</p>
-                        <button onclick="showOverdueDetails()" class="bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-700 transition-colors whitespace-nowrap">Review</button>
+                        <button onclick="showOverdueDetails()" class="bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-700 transition-colors whitespace-nowrap">Review & Pay</button>
                     </div>
                 </div>
 
@@ -263,14 +263,10 @@
 
                     <!-- Next Payday Card -->
                     <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Next Payment</p>
-                                <p id="dash-next-payday" class="text-xl md:text-2xl font-black text-slate-900 tracking-tight mt-1">--</p>
-                            </div>
-                        </div>
+                        <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Next Payment</p>
+                        <p id="dash-next-payday" class="text-xl md:text-2xl font-black text-slate-900 tracking-tight mt-1">--</p>
                         <div class="mt-4 flex items-center justify-between">
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Scheduled</p>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Upcoming Cycle</p>
                             <button onclick="showNextPaymentDetails()" id="btn-view-breakdown" class="hidden bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors">
                                 View Breakdown
                             </button>
@@ -438,6 +434,7 @@
                 <div>
                     <h3 class="text-xl font-black text-slate-900" id="modal-title">Details</h3>
                     <p class="text-xs font-bold text-slate-400 uppercase mt-1" id="modal-debtor">--</p>
+                    <p id="modal-incurred" class="text-[10px] text-slate-400 font-bold mt-1"></p>
                 </div>
                 <button onclick="closeModal('breakdown-modal')" class="w-10 h-10 bg-white border border-slate-200 rounded-full font-black text-slate-400 hover:text-slate-900 transition-colors">&times;</button>
             </div>
@@ -540,7 +537,7 @@
         </button>
         <button onclick="switchTab('settings')" class="mobile-nav-btn p-3 flex flex-col items-center gap-1 text-slate-400 transition-all rounded-2xl" id="m-btn-settings">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82"/></svg>
-            <span class="text-[9px] font-bold">Settings</span>
+            <span class="text-[9px] font-bold">Set</span>
         </button>
     </nav>
 
@@ -554,8 +551,8 @@
         window.currentLenderFilter = 'all';
         window.currentStatusFilter = 'ongoing';
         window.userId = null;
-        window.nextPaymentBreakdown = []; // Stores items for the modal
-        window.overdueItems = []; // Stores items for overdue modal
+        window.nextPaymentBreakdown = [];
+        window.overdueItems = [];
 
         const firebaseConfig = {
             apiKey: "AIzaSyDfmB78T2pfXxPY0OIbS59JXblpv_oWlqE",
@@ -764,7 +761,6 @@
             selectedDays.sort((a, b) => a - b);
             
             const totalItemsNeeded = terms * selectedDays.length;
-            // SPLIT LOGIC: Monthly Amount / Number of Paydays selected
             const amountPerItem = fixedMonthlyAmount / selectedDays.length;
 
             let currentYear = startDate.getFullYear();
@@ -819,9 +815,12 @@
                 window.debts[dIdx].isDone = window.debts[dIdx].installments.every(i => i.paid);
                 window.save();
                 
-                // Refresh visible modal if open
+                // Refresh modal content dynamically based on what's open
+                const modalTitle = document.getElementById('modal-title').innerText;
                 if(document.getElementById('breakdown-modal').classList.contains('modal-active')) {
-                     window.showBreakdown(debtId);
+                    if(modalTitle === "Upcoming Payments") window.showNextPaymentDetails();
+                    else if(modalTitle === "Overdue Items") window.showOverdueDetails();
+                    else window.showBreakdown(debtId);
                 }
             }
         };
@@ -831,6 +830,8 @@
             if (!d) return;
             document.getElementById('modal-title').innerText = d.name;
             document.getElementById('modal-debtor').innerText = "Lender: " + d.debtor;
+            document.getElementById('modal-incurred').innerText = "Incurred: " + new Date(d.date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+
             const unpaid = d.installments.filter(i => !i.paid).reduce((s, i) => s + i.amount, 0);
             document.getElementById('modal-unpaid-amt').innerText = fmt(unpaid);
             document.getElementById('modal-total-amt').innerText = fmt(d.totalAmount);
@@ -843,7 +844,10 @@
                         <button onclick="toggleInstallmentPaid(${d.id}, ${i})" class="w-10 h-10 rounded-full ${inst.paid ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'} flex items-center justify-center transition-all font-bold">
                             ${inst.paid ? '✓' : ''}
                         </button>
-                        <div><p class="text-sm font-bold ${inst.paid ? 'line-through text-slate-400' : 'text-slate-800'}">${displayDate}</p></div>
+                        <div>
+                            <p class="text-sm font-bold ${inst.paid ? 'line-through text-slate-400' : 'text-slate-800'}">Due: ${displayDate}</p>
+                            
+                        </div>
                     </div>
                     <span class="text-sm font-black text-slate-900">${fmt(inst.amount)}</span>
                 </div>`}).join('');
@@ -851,10 +855,16 @@
         };
 
         window.showNextPaymentDetails = () => {
-            if (window.nextPaymentBreakdown.length === 0) return;
+            if (window.nextPaymentBreakdown.length === 0) {
+                 if (document.getElementById('breakdown-modal').classList.contains('modal-active')) {
+                     window.closeModal('breakdown-modal');
+                 }
+                 return;
+            }
             
             document.getElementById('modal-title').innerText = "Upcoming Payments";
             document.getElementById('modal-debtor').innerText = "Items due soon";
+            document.getElementById('modal-incurred').innerText = "";
             
             const total = window.nextPaymentBreakdown.reduce((s, i) => s + i.amount, 0);
             document.getElementById('modal-unpaid-amt').innerText = fmt(total);
@@ -863,7 +873,9 @@
             document.getElementById('modal-content').innerHTML = window.nextPaymentBreakdown.map(item => `
                 <div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-none">
                     <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">${item.lender.charAt(0)}</div>
+                        <button onclick="toggleInstallmentPaid(${item.debtId}, ${item.instIndex})" class="w-10 h-10 rounded-full bg-slate-100 text-slate-400 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all font-bold">
+                            ✓
+                        </button>
                         <div>
                             <p class="text-sm font-bold text-slate-800">${item.desc}</p>
                             <p class="text-[10px] font-bold text-slate-400 uppercase">${item.lender}</p>
@@ -877,27 +889,40 @@
         };
 
         window.showOverdueDetails = () => {
-            if (window.overdueItems.length === 0) return;
+            if (window.overdueItems.length === 0) {
+                if (document.getElementById('breakdown-modal').classList.contains('modal-active')) {
+                     window.closeModal('breakdown-modal');
+                }
+                return;
+            }
             
             document.getElementById('modal-title').innerText = "Overdue Items";
             document.getElementById('modal-debtor').innerText = "Missed Payments";
+            document.getElementById('modal-incurred').innerText = "";
             
             const total = window.overdueItems.reduce((s, i) => s + i.amount, 0);
             document.getElementById('modal-unpaid-amt').innerText = fmt(total);
             document.getElementById('modal-total-amt').innerText = "Total Overdue";
 
-            document.getElementById('modal-content').innerHTML = window.overdueItems.map(item => `
+            document.getElementById('modal-content').innerHTML = window.overdueItems.map(item => {
+                // Formatting date for display
+                const [y, m, d_val] = item.date.split('-');
+                const displayDate = new Date(y, m-1, d_val).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+
+                return `
                 <div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-none">
                     <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-bold text-xs">!</div>
+                         <button onclick="toggleInstallmentPaid(${item.debtId}, ${item.instIndex})" class="w-10 h-10 rounded-full bg-red-100 text-red-400 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all font-bold">
+                            ✓
+                        </button>
                         <div>
                             <p class="text-sm font-bold text-slate-800">${item.desc}</p>
-                            <p class="text-[10px] font-bold text-red-400 uppercase">Due: ${item.date}</p>
+                            <p class="text-[10px] font-bold text-red-400 uppercase">Due: ${displayDate}</p>
                         </div>
                     </div>
                     <span class="text-sm font-black text-red-600">${fmt(item.amount)}</span>
                 </div>
-            `).join('');
+            `}).join('');
             
             document.getElementById('breakdown-modal').classList.add('modal-active');
         };
@@ -983,7 +1008,7 @@
             window.debts.forEach(d => {
                 const lenderMatch = dashFilter === 'all' || d.debtor === dashFilter;
                 
-                d.installments.forEach(inst => {
+                d.installments.forEach((inst, i) => { // Capture index 'i'
                     const [yStr, mStr, dStr] = inst.date.split('-');
                     const yVal = parseInt(yStr);
                     const mVal = parseInt(mStr);
@@ -1003,10 +1028,24 @@
                         // Overdue Logic
                         if (inst.date < todayStr) {
                             overdueSum += inst.amount;
-                            window.overdueItems.push({ desc: d.name, lender: d.debtor, amount: inst.amount, date: inst.date });
+                            window.overdueItems.push({ 
+                                desc: d.name, 
+                                lender: d.debtor, 
+                                amount: inst.amount, 
+                                date: inst.date,
+                                debtId: d.id,
+                                instIndex: i 
+                            });
                         } else {
                             // Upcoming for next payment calculation
-                             allUnpaidInst.push({ date: inst.date, amount: inst.amount, lender: d.debtor, desc: d.name });
+                             allUnpaidInst.push({ 
+                                 date: inst.date, 
+                                 amount: inst.amount, 
+                                 lender: d.debtor, 
+                                 desc: d.name,
+                                 debtId: d.id,
+                                 instIndex: i
+                             });
                         }
                         
                         const dt = new Date(yVal, mVal-1, dVal);
